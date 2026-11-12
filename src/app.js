@@ -954,7 +954,7 @@ function housePanel(){
   <p>Πάτα πάνω σε έναν τοίχο για να αλλάξεις το πάχος ή την κατασκευή του. Το κουμπί «Πάχη» γράφει το πάχος πάνω σε κάθε τοίχο.</p>
   <div class="form"><label class="f">Εξωτερικοί τοίχοι του σπιτιού<select id="wExtC"><option value="">— μόνο πάχος —</option>${consOpts(S.extC,'ext')}</select></label>
   <div class="row">${S.extC&&consById(S.extC)?`<label class="f">Πάχος εξωτερικών (m)<input value="${fmt(consT(consById(S.extC)))}" disabled></label>`:field('wExt','Πάχος εξωτερικών (m)',fmt(S.ext))}${field('wInt','Εσωτερικοί, για νέους χώρους (m)',fmt(S.int))}</div>
-  <div class="row">${field('wTol','Ανοχή κλεισίματος (εκ.)',cm(S.tol||0.03))}</div></div>
+  <div class="row">${field('wTol','Ανοχή κλεισίματος (εκ.)',cm(S.tol||0.03))}${typeof ktWallDirUI==='function'?ktWallDirUI():''}</div></div>
   <div class="eyebrow" style="margin-top:14px">Κατασκευές τοίχων</div>
   <div class="tbl"><table><tbody>${(S.cons||[]).map(c=>`<tr data-c="${c.id}"><td>${esc(c.name)} <span style="color:var(--ink-2);font-size:12px">${c.kind==='int'?'εσωτ.':'εξωτ.'}</span></td><td>${cm(consT(c))} εκ.</td></tr>`).join('')}</tbody></table></div>
   <div class="actions"><button class="btn" id="cNew">+ Νέα κατασκευή</button></div></div>
@@ -968,9 +968,9 @@ function housePanel(){
   side.querySelectorAll('[data-place]').forEach(b=>b.onclick=()=>pyPlace(b.dataset.place));
   bindFloors(); if(typeof ktHouseBind==='function') ktHouseBind();
   side.querySelectorAll('[data-r]').forEach(tr=>tr.onclick=()=>{ selRoom=+tr.dataset.r; render(); renderSide(); });
-  const wb=(id,k)=>{ const el=$(id); el.addEventListener('change',()=>{ const v=num(el.value); if(v>=0&&v<3){ snap(); S[k]=v; commit(); } }); el.addEventListener('keydown',e=>{ if(e.key==='Enter') el.blur(); }); el.addEventListener('focus',()=>el.select()); };
+  const wb=(id,k)=>{ const el=$(id); el.addEventListener('change',()=>{ const v=num(el.value); if(v>=0&&v<3){ if(k==='ext'&&typeof ktWallsIn==='function'&&ktWallsIn(()=>{ S[k]=v; })) return; snap(); S[k]=v; commit(); } }); el.addEventListener('keydown',e=>{ if(e.key==='Enter') el.blur(); }); el.addEventListener('focus',()=>el.select()); };
   if($('wExt')) wb('wExt','ext'); wb('wInt','int');
-  $('wExtC').onchange=()=>{ snap(); S.extC=$('wExtC').value||null; commit(); };
+  $('wExtC').onchange=()=>{ const v=$('wExtC').value||null; if(typeof ktWallsIn==='function'&&ktWallsIn(()=>{ S.extC=v; })) return; snap(); S.extC=v; commit(); };
   const tl=$('wTol'); tl.addEventListener('focus',()=>tl.select()); tl.addEventListener('change',()=>{ const v=parseFloat(String(tl.value).replace(',','.')); if(v>0&&v<50){ snap(); S.tol=r4(v/100); commit(); } });
   side.querySelectorAll('[data-c]').forEach(tr=>tr.onclick=()=>{ consEdit=tr.dataset.c; renderSide(); });
   $('cNew').onclick=()=>{ snap(); const n={id:'c'+Date.now().toString(36),kind:'ext',name:'Νέα κατασκευή',layers:[L_('sovas'),L_('lith'),L_('sovas')]}; S.cons.push(n); saveConsLib(); consEdit=n.id; commit(); };

@@ -26,7 +26,7 @@ function ktEdit(k){ if(typeof wzActive==='function'&&wzActive()) wzFree();
   sel=null; tool=null; markTool(); selRoom=null; selWall=null; consEdit=null; splitting=null;
   if(!ktRing(k)){ snap(); ktSetRing(k,ktDefault(k)); save(); }
   KO={k, act:-1}; compute(); render(); renderSide(); fit(); }
-function ktEsc(){ KO=null; KD=null; }
+function ktEsc(){ KO=null; KD=null; KC=null; if(KT.cut){ KT.cut=null; } }
 // αλλαγή μήκους πλευράς i: η τελική γωνία (και η επόμενη, ώστε η επόμενη πλευρά να μένει παράλληλη) πάει κατά μήκος της πλευράς
 function ktSetLen(r,i,L){ const n=r.length, a=r[i], b=r[(i+1)%n], L0=Math.hypot(b[0]-a[0],b[1]-a[1]); if(L0<1e-6) return;
   const d=L-L0, ux=(b[0]-a[0])/L0, uy=(b[1]-a[1])/L0;
@@ -49,14 +49,19 @@ function ktSnap(p,i){ const r=ktRing(KO.k), n=r.length, tol=12/view.s; let best=
 function ktSnapEdges(){ const E=[]; for(const r of ktRings()) for(let i=0;i<r.length;i++){ const a=r[i], b=r[(i+1)%r.length], L=Math.hypot(b[0]-a[0],b[1]-a[1]); if(L<0.05) continue; E.push({a,b,L,ux:(b[0]-a[0])/L,uy:(b[1]-a[1])/L}); } return E; }
 
 // ---- δείκτης (ποντίκι / δάχτυλο / γραφίδα) ----
-function ktDown(x,y,e){ if(!KO||mode!=='house') return false; const r=ktRing(KO.k); if(!r) return false; const n=r.length;
+function ktDown(x,y,e){
+  if(KT.cut&&mode==='house'){ if(e&&e.pointerType==='pen') penSeen=true; if(e&&e.pointerType==='touch'&&penSeen){ drag={pan:true,sx:x,sy:y,ox:view.ox,oy:view.oy}; return true; }
+    KC={id:e?e.pointerId:0,pts:[S2W(x,y)]}; render(); return true; }
+  if(!KO||mode!=='house') return false; const r=ktRing(KO.k); if(!r) return false; const n=r.length;
   for(let i=0;i<n;i++){ const s=W2S(r[i]); if(Math.hypot(s[0]-x,s[1]-y)<14){ KD={i,pre:snapStr(),moved:false,sx:x,sy:y}; if(KO.act!==i){ KO.act=i; renderSide(); } render(); return true; } }
   for(let i=0;i<n;i++){ const a=r[i], b=r[(i+1)%n], s=W2S([(a[0]+b[0])/2,(a[1]+b[1])/2]); if(Math.hypot(s[0]-x,s[1]-y)<12){ const pre=snapStr();
       r.splice(i+1,0,[r4((a[0]+b[0])/2),r4((a[1]+b[1])/2)]); KD={i:i+1,pre,moved:true,sx:x,sy:y}; KO.act=i+1; render(); return true; } }
   drag={pan:true,sx:x,sy:y,ox:view.ox,oy:view.oy}; return true; }
-function ktMove(x,y){ if(!KD||!KO) return false; if(!KD.moved&&Math.hypot(x-KD.sx,y-KD.sy)<4) return true; KD.moved=true;
+function ktMove(x,y){ if(KC){ const p=S2W(x,y), q=KC.pts[KC.pts.length-1]; if(Math.hypot(p[0]-q[0],p[1]-q[1])*view.s>=3){ KC.pts.push(p); render(); } return true; }
+  if(!KD||!KO) return false; if(!KD.moved&&Math.hypot(x-KD.sx,y-KD.sy)<4) return true; KD.moved=true;
   const r=ktRing(KO.k); if(!r) return true; r[KD.i]=ktSnap(S2W(x,y),KD.i); render(); return true; }
-function ktUp(){ if(!KD) return false; const m=KD.moved; if(m){ undoS.push(KD.pre); redoS=[]; updUndo(); } KD=null; snapMark=null; if(m) commit(); else render(); return true; }
+function ktUp(){ if(KC){ const raw=KC.pts; KC=null; ktCutFinish(raw); render(); return true; }
+  if(!KD) return false; const m=KD.moved; if(m){ undoS.push(KD.pre); redoS=[]; updUndo(); } KD=null; snapMark=null; if(m) commit(); else render(); return true; }
 
 // ---- σχεδίαση ----
 function ktDim(a,b,v,col){ const sa=W2S(a), sb=W2S(b), L=Math.hypot(sb[0]-sa[0],sb[1]-sa[1]); if(L<2) return; const ux=(sb[0]-sa[0])/L, uy=(sb[1]-sa[1])/L, nx=-uy*5, ny=ux*5;
@@ -101,10 +106,11 @@ function ktDrawDist(){ const it=byId(sel); if(!it||it.room!==cur) return; const 
     if(g.left>0.004) ktDim(off(g.e.a),off(g.p0),g.left,col); if(g.right>0.004) ktDim(off(g.p1),off(g.e.b),g.right,col);
     ctx.save(); ctx.strokeStyle=col; ctx.globalAlpha=0.5; ctx.lineWidth=1; ctx.setLineDash([3,3]); for(const p of [g.e.a,g.p0,g.p1,g.e.b]) line(p,off(p)); ctx.restore(); return; }
   for(const x of ktRays(it)) if(x.d>0.004) ktDim(x.a,x.b,x.d,col); }
-function ktDrawOver(){ if(mode==='house'){ ktDrawE9(); ktDrawRing('bld'); ktDrawRing('floor'); } else ktDrawDist(); }
+function ktDrawOver(){ if(KC&&KC.pts.length>1){ ctx.save(); ctx.strokeStyle=colors.sub; ctx.lineWidth=3; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.beginPath(); KC.pts.forEach((p,i)=>{ const s=W2S(p); i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1]); }); ctx.stroke(); ctx.restore(); }
+  if(mode==='house'){ ktDrawE9(); ktDrawRing('bld'); ktDrawRing('floor'); } else ktDrawDist(); }
 
 // ---- πλαϊνό πάνελ: επεξεργασία περιγράμματος ----
-function ktSide(){ if(!KO||mode!=='house') return false; const k=KO.k, r=ktRing(k); if(!r){ KO=null; return false; }
+function ktSide(){ if(ktCutSide()) return true; if(!KO||mode!=='house') return false; const k=KO.k, r=ktRing(k); if(!r){ KO=null; return false; }
   const n=r.length, st=ktStat(r), sg=v=>(v>0?'+':'')+fmt(v);
   let cmp='';
   if(k==='floor'){ const fa=HOUSE.footArea; if(fa>0.01) cmp=`<dt>Μικτό από τους χώρους</dt><dd>${fmt(fa)} m²</dd><dt>Διαφορά</dt><dd>${sg(st.area-fa)} m²</dd>`; }
@@ -140,8 +146,9 @@ function ktHouseBox(){ const fo=FL().ol, B=bldInfo();
   return `<div class="eyebrow" style="margin-top:14px">Περιγράμματα</div>
   <div class="tbl"><table><tbody><tr><td>Περίγραμμα ορόφου «${esc(FL().name)}»</td><td>${fo?fmt(ktStat(fo).area)+' m²':'από τους χώρους'}</td></tr>
   <tr><td>Περίγραμμα κτιρίου${S.bld?'':S.topo&&S.topo.bld?' (τοπογράφου)':''}</td><td>${B&&B.rings.length?fmt(B.area)+' m²':'—'}</td></tr></tbody></table></div>
-  <div class="actions"><button class="btn" id="ktEF">Άλλαξε περίγραμμα ορόφου</button><button class="btn" id="ktEB">Άλλαξε περίγραμμα κτιρίου</button></div>${ktE9Box()}`; }
-function ktHouseBind(){ ktE9Bind(); if($('ktEF')) $('ktEF').onclick=()=>ktEdit('floor'); if($('ktEB')) $('ktEB').onclick=()=>ktEdit('bld'); }
+  <div class="actions"><button class="btn" id="ktEF">Άλλαξε περίγραμμα ορόφου</button><button class="btn" id="ktEB">Άλλαξε περίγραμμα κτιρίου</button></div>
+  <div class="actions"><button class="btn primary" id="ktCut">Χώρισε με τη γραφίδα</button></div>${ktE9Box()}`; }
+function ktHouseBind(){ ktE9Bind(); if($('ktCut')) $('ktCut').onclick=ktCutStart; if($('ktWDir')) $('ktWDir').onchange=()=>{ snap(); if($('ktWDir').value==='out') S.wallOut=true; else delete S.wallOut; commit(); }; if($('ktEF')) $('ktEF').onclick=()=>ktEdit('floor'); if($('ktEB')) $('ktEB').onclick=()=>ktEdit('bld'); }
 
 // ---- αποστάσεις στο πάνελ του αντικειμένου ----
 function ktDistUI(it){ const R=ktRays(it); if(!R.length) return '';
@@ -152,8 +159,8 @@ function ktDistBind(it,ch){ for(const x of ktRays(it)){ const el=$('kd'+x.k); if
 
 // ---- ομάδες χώρων (ενδιάμεσο επίπεδο, π.χ. διαμέρισμα) ----
 function ktGroups(){ const s=new Set(); for(const f of S.floors) for(const r of floorData(f).rooms) if(r.grp) s.add(r.grp); return [...s]; }
-function ktGrpUI(room){ return `<label class="f">Ανήκει σε (προαιρετικό, π.χ. Διαμέρισμα Α1)<input id="rGrp" list="ktGrpL" value="${esc(room.grp||'')}" autocomplete="off" placeholder="κατευθείαν στον όροφο"><datalist id="ktGrpL">${ktGroups().map(g=>`<option value="${esc(g)}">`).join('')}</datalist></label>`; }
-function ktGrpBind(room){ const el=$('rGrp'); if(!el) return; el.addEventListener('keydown',e=>{ if(e.key==='Enter') el.blur(); });
+function ktGrpUI(room){ return `<label class="f">Ανήκει σε (προαιρετικό, π.χ. Διαμέρισμα Α1)<input id="rGrp" list="ktGrpL" value="${esc(room.grp||'')}" autocomplete="off" placeholder="κατευθείαν στον όροφο"><datalist id="ktGrpL">${ktGroups().map(g=>`<option value="${esc(g)}">`).join('')}</datalist></label><div class="actions"><button class="btn" id="ktCutR">Χώρισε με τη γραφίδα</button></div>`; }
+function ktGrpBind(room){ if($('ktCutR')) $('ktCutR').onclick=ktCutStart; const el=$('rGrp'); if(!el) return; el.addEventListener('keydown',e=>{ if(e.key==='Enter') el.blur(); });
   el.addEventListener('change',()=>{ const v=el.value.trim(); if((room.grp||'')===v) return; snap(); if(v) room.grp=v; else delete room.grp; commit(); }); }
 
 // ---- δέντρο κτιρίου ----
@@ -281,3 +288,85 @@ function ktDrawE9(){ if(!KT.e9) return; const E=ktE9(); ctx.save();
     const o=OL[x.room.id]; if(!o||!o.polys.length) continue; let big=o.polys[0]; for(const p of o.polys) if(p.area>big.area) big=p; let c=centroid(big[0]); if(!inPolys(c,o.polys)) c=big[0][0]; const s=W2S(c);
     text(E9U[x.u]+' '+fmt(x.e9)+' m²',[s[0],s[1]+(view.s>35?42:24)],12,col,0,'700',true); }
   ctx.restore(); }
+
+// ---------- Πάχος εξωτερικών τοίχων από την εσωτερική παρειά ----------
+// Όταν αλλάζει το πάχος για όλο το κτίριο, το εξωτερικό περίγραμμα μένει και μετακινείται η εσωτερική παρειά (οι χώροι μικραίνουν ή μεγαλώνουν).
+// S.wallOut = true κρατά τον παλιό τρόπο (μένουν οι χώροι, ο τοίχος μεγαλώνει προς τα έξω).
+function ktWallDirUI(){ return `<label class="f">Όταν αλλάζει το πάχος των εξωτερικών<select id="ktWDir"><option value="in" ${S.wallOut?'':'selected'}>μένει το εξωτερικό, αλλάζει η εσωτερική παρειά</option><option value="out" ${S.wallOut?'selected':''}>μένουν οι χώροι, ο τοίχος πάει προς τα έξω</option></select></label>`; }
+function ktRoomRings(id,polys){ // αντικαθιστά τα σχήματα του χώρου (εκτός από τις «Αφαιρέσεις») με τα δαχτυλίδια, στο ίδιο τοπικό σύστημα
+  const a=roomAnchor(id); S.items=S.items.filter(i=>!(i.room===id&&isShape(i)&&!i.sub));
+  for(const r of polys){ S.items.push({id:S.next++,room:id,t:'poly',x:a.x,y:a.y,rot:a.rot,sub:false,pts:r.map(p=>{ const q=rotP(p[0]-a.x,p[1]-a.y,-a.rot); return [r4(q[0]),r4(q[1])]; }),src:{k:'walls'}}); } }
+function ktWallsIn(apply){ if(S.wallOut) return false;
+  compute(); const old={}; for(const W of WALLS) if(W.ext&&!W.part) old[W.room+':'+W.pi+':'+W.i]=W.T;
+  snap(); apply(); compute();
+  let moved=0;
+  for(const room of S.rooms){ const o=OL[room.id]; if(!o||!o.polys.length||isOpen(room)) continue;
+    const D=o.polys.map((poly,pi)=>poly[0].map((a,i)=>{ const W=WALLS.find(w=>w.room===room.id&&w.pi===pi&&w.i===i), k=room.id+':'+pi+':'+i; return W&&W.ext&&!W.part&&old[k]!=null? r4(W.T-old[k]) : 0; }));
+    if(!D.some(d=>d.some(x=>Math.abs(x)>1e-4))) continue;
+    // κράτα τις ρυθμίσεις τοίχων (κλειδί = τοπικές συντεταγμένες) στη νέα θέση της πλευράς
+    const rekey=[]; o.polys.forEach((poly,pi)=>{ const r=poly[0], N=ringNormals(r); r.forEach((a,i)=>{ const d=D[pi][i]; if(!d) return; const b=r[(i+1)%r.length], ov=findOverride(room,a,b); if(ov) rekey.push([ov,[a[0]-N[i][0]*d,a[1]-N[i][1]*d],[b[0]-N[i][0]*d,b[1]-N[i][1]*d]]); }); });
+    const rings=o.polys.map((poly,pi)=>cleanRing(varOffset(poly[0],D[pi].map(d=>-d)))).filter(r=>r.length>=3&&Math.abs(areaRing(r))>0.05);
+    if(!rings.length) continue;
+    ktRoomRings(room.id,rings); for(const [ov,A,B] of rekey) ov.k=wallKey(room.id,A,B); moved++; }
+  commit();
+  if(moved) toast('Άλλαξε το πάχος από μέσα: μετακινήθηκε η εσωτερική παρειά σε '+moved+(moved===1?' χώρο':' χώρους')+'. Το εξωτερικό περίγραμμα έμεινε ίδιο.');
+  return true; }
+
+// ---------- Χωρισμός κτιρίου σε χώρους με τη γραφίδα ----------
+// Στην «Οικία», με το «Χώρισε με τη γραφίδα», κάθε γραμμή που τραβάς γίνεται εσωτερικός τοίχος (πάχος KT.cutT, κέντρο πάνω στη γραμμή)
+// και κόβει όσους χώρους περνά. Οι γραμμές ισιώνουν και γυρνούν στις 90° ως προς τη μεγάλη πλευρά του χώρου.
+let KC=null;   // γραμμή που ζωγραφίζεται {id, pts}
+function ktCutStart(){ if(typeof wzActive==='function'&&wzActive()) wzFree(); KO=null; if(mode!=='house'){ mode='house'; markMode(); } sel=null; tool=null; markTool(); selWall=null; consEdit=null; splitting=null;
+  KT.cut={t:S.int||0.20, o90:true}; render(); renderSide(); }
+function ktCutSide(){ if(!KT.cut||mode!=='house') return false;
+  h(`<div class="eyebrow">Χωρισμός με τη γραφίδα</div><h2>Τράβηξε τους εσωτερικούς τοίχους</h2>
+  <p>Ζωγράφισε μια γραμμή πάνω στην κάτοψη, από τοίχο σε τοίχο. Γίνεται εσωτερικός τοίχος και χωρίζει τον χώρο στα δύο. Μπορείς να κάνεις και γωνία (Γ). Αν δεν φτάσει ως τον τοίχο, συνεχίζει μόνη της ως εκεί.</p>
+  <div class="form"><div class="row">${field('kcT','Πάχος τοίχου (m)',fmt(KT.cut.t))}<label class="f"><span><input type="checkbox" id="kc90" ${KT.cut.o90?'checked':''}> Μόνο ορθές γωνίες</span></label></div></div>
+  <p style="font-size:13px;color:var(--ink-2)">Με γραφίδα: το δάχτυλο μετακινεί την κάτοψη. Με ποντίκι: σύρε για γραμμή, με τη ροδέλα κάνεις ζουμ. Μετά άλλαξε τα ονόματα πατώντας τους χώρους.</p>
+  <div class="actions"><button class="btn" id="kcUndo" ${undoS.length?'':'disabled'}>↶ Αναίρεση</button><button class="btn primary" id="kcOk">Τέλος</button></div>`);
+  const t=$('kcT'); t.addEventListener('focus',()=>t.select()); t.addEventListener('keydown',e=>{ if(e.key==='Enter') t.blur(); }); t.addEventListener('change',()=>{ const v=num(t.value); if(v>0.02&&v<1) KT.cut.t=v; });
+  $('kc90').onchange=()=>{ KT.cut.o90=$('kc90').checked; };
+  $('kcUndo').onclick=()=>$('bUndo').click();
+  $('kcOk').onclick=()=>{ KT.cut=null; KC=null; render(); renderSide(); };
+  return true; }
+function ktLongAxis(polys){ let best=0, bl=0; for(const poly of polys) for(const r of poly) for(let i=0;i<r.length;i++){ const a=r[i], b=r[(i+1)%r.length], L=Math.hypot(b[0]-a[0],b[1]-a[1]); if(L>bl){ bl=L; best=Math.atan2(b[1]-a[1],b[0]-a[0]); } } return best; }
+function ktCutFinish(raw){ if(raw.length<2) return; const t=KT.cut.t;
+  let P=penRdp(raw,Math.max(0.12,10/view.s)); if(P.length<2) return; const span=Math.hypot(P[P.length-1][0]-P[0][0],P[P.length-1][1]-P[0][1]); if(span<0.3&&P.length<3) return toast('Πολύ μικρή γραμμή');
+  // χώρος που πατά η γραμμή: για τον άξονα των 90°
+  const mid=raw[Math.floor(raw.length/2)]; const hitR=S.rooms.find(r=>OL[r.id]&&inPolys(mid,OL[r.id].polys))||S.rooms.find(r=>OL[r.id]&&OL[r.id].polys.length);
+  if(!hitR) return toast('Δεν υπάρχει χώρος για να χωρίσεις');
+  const ax=ktLongAxis(OL[hitR.id].polys);
+  // ίσιωμα: κάθε τμήμα στις 90° ως προς τον άξονα (ή 45° αν δεν είναι «Μόνο ορθές»)
+  const Q=[P[0].slice()]; for(let i=1;i<P.length;i++){ const a=Q[Q.length-1], b=P[i]; let ang=Math.atan2(b[1]-a[1],b[0]-a[0]), L=Math.hypot(b[0]-a[0],b[1]-a[1]); if(L<0.05) continue;
+    const rel=ang-ax; const st=KT.cut.o90?Math.PI/2:Math.PI/4; const sn=ax+Math.round(rel/st)*st; if(Math.abs(penAngDiff(sn,ang))<0.35) ang=sn;
+    // το μήκος: η προβολή του σημείου πάνω στη νέα διεύθυνση
+    L=(b[0]-a[0])*Math.cos(ang)+(b[1]-a[1])*Math.sin(ang); Q.push([a[0]+Math.cos(ang)*L,a[1]+Math.sin(ang)*L]); }
+  // συγχώνευση διαδοχικών τμημάτων με ίδια διεύθυνση
+  const R=[Q[0]]; for(let i=1;i<Q.length;i++){ if(R.length>=2){ const a=R[R.length-2], b=R[R.length-1], c=Q[i], c1=(b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]); if(Math.abs(c1)<1e-6){ R[R.length-1]=c; continue; } } R.push(Q[i]); }
+  if(R.length<2) return;
+  // άκρα: συνέχισε ως τον πρώτο τοίχο (ή λίγο πιο πέρα αν ήδη τον περνά)
+  const ext=(p,q)=>{ const L=Math.hypot(p[0]-q[0],p[1]-q[1])||1, d=[(p[0]-q[0])/L,(p[1]-q[1])/L]; const inside=S.rooms.some(r=>OL[r.id]&&!isOpen(r)&&inPolys(p,OL[r.id].polys));
+    let k=0.05; if(inside){ const c=ktCast(p,d); if(c!=null&&c<30) k=c+0.02; } return [p[0]+d[0]*k,p[1]+d[1]*k]; };
+  R[0]=ext(R[0],R[1]); R[R.length-1]=ext(R[R.length-1],R[R.length-2]);
+  // λωρίδα τοίχου γύρω από τη γραμμή
+  const hw=t/2, parts=[]; for(let i=0;i+1<R.length;i++){ const a=R[i], b=R[i+1], L=Math.hypot(b[0]-a[0],b[1]-a[1]); if(L<1e-4) continue; const ux=(b[0]-a[0])/L, uy=(b[1]-a[1])/L, nx=-uy*hw, ny=ux*hw;
+    parts.push([[[a[0]+nx,a[1]+ny],[b[0]+nx,b[1]+ny],[b[0]-nx,b[1]-ny],[a[0]-nx,a[1]-ny]]]);
+    if(i>0) parts.push([[[a[0]-hw,a[1]-hw],[a[0]+hw,a[1]-hw],[a[0]+hw,a[1]+hw],[a[0]-hw,a[1]+hw]].map(q=>{ const r=rotP(q[0]-a[0],q[1]-a[1],ax*180/Math.PI); return [a[0]+r[0],a[1]+r[1]]; })]); }
+  let strip; try{ strip=PC.union(...parts); }catch(e){ return toast('Δεν μπόρεσα να φτιάξω τον τοίχο'); }
+  snap(); let cut=0, made=0;
+  for(const room of S.rooms.slice()){ const o=OL[room.id]; if(!o||!o.polys.length) continue; let pieces;
+    try{ if(!PC.intersection(o.polys,strip).length) continue; pieces=PC.difference(o.polys,strip); }catch(e){ continue; }
+    const rings=pieces.map(p=>cleanRing(p[0])).filter(r=>r.length>=3&&Math.abs(areaRing(r))>0.05);
+    if(rings.length<2) continue;
+    rings.sort((A,B)=>Math.abs(areaRing(B))-Math.abs(areaRing(A)));
+    const others=roomItems(room.id).filter(i=>!isShape(i)), base=room.name.replace(/\s+\d+$/,''), ids=[room.id];
+    S.items=S.items.filter(i=>!(i.room===room.id&&isShape(i)));
+    rings.forEach((ring,k)=>{ let id=room.id; if(k>0){ id=newRoomId(); S.rooms.push({id,name:base+' '+(nextNo(base)),grp:room.grp}); if(!room.grp) delete S.rooms[S.rooms.length-1].grp; ids.push(id); made++; }
+      const c=centroid(ring); S.items.push({id:S.next++,room:id,t:'poly',x:r4(c[0]),y:r4(c[1]),rot:0,sub:false,pts:ring.map(p=>[r4(p[0]-c[0]),r4(p[1]-c[1])]),src:{k:'split'}}); });
+    compute();
+    for(const it of others){ const p=[it.x,it.y]; let best=ids[0], bd=1e9;
+      for(const id of ids){ const ol=OL[id]; if(!ol) continue; const d=(it.t==='door'||it.t==='window')? ((nearestEdge(p,ol.edges)||{d:1e9}).d) : (inPolys(p,ol.polys)?0:(nearestEdge(p,ol.edges)||{d:1e9}).d); if(d<bd){ bd=d; best=id; } }
+      it.room=best; }
+    cut++; }
+  if(!cut){ undoS.pop(); updUndo(); KC=null; render(); return toast('Η γραμμή δεν χωρίζει κανέναν χώρο. Τράβηξέ τη από τοίχο σε τοίχο.'); }
+  selRoom=null; commit(); toast('Μπήκε τοίχος '+cm(t)+' εκ.: '+(made+cut)+' χώροι από '+cut+'.'); }
