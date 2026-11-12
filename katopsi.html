@@ -2485,7 +2485,9 @@ function ktCutFinish(raw){ if(raw.length<2) return; const t=KT.cut.t;
   // άκρα: συνέχισε ως τον πρώτο τοίχο (ή λίγο πιο πέρα αν ήδη τον περνά)
   const ext=(p,q)=>{ const L=Math.hypot(p[0]-q[0],p[1]-q[1])||1, d=[(p[0]-q[0])/L,(p[1]-q[1])/L]; const inside=S.rooms.some(r=>OL[r.id]&&!isOpen(r)&&inPolys(p,OL[r.id].polys));
     let k=0.05; if(inside){ const c=ktCast(p,d); if(c!=null&&c<30) k=c+0.02; } return [p[0]+d[0]*k,p[1]+d[1]*k]; };
-  R[0]=ext(R[0],R[1]); R[R.length-1]=ext(R[R.length-1],R[R.length-2]);
+  // άκρο πάνω σε γωνία: ο τοίχος σταματά εκεί (δεν συνεχίζει μέσα στον χώρο πέρα από τη γωνία)
+  const stop=p=>p.slice();
+  R[0]=snapped[0]?stop(R[0],R[1]):ext(R[0],R[1]); R[R.length-1]=snapped[snapped.length-1]?stop(R[R.length-1],R[R.length-2]):ext(R[R.length-1],R[R.length-2]);
   // λωρίδα τοίχου γύρω από τη γραμμή
   const hw=t/2, parts=[]; for(let i=0;i+1<R.length;i++){ const a=R[i], b=R[i+1], L=Math.hypot(b[0]-a[0],b[1]-a[1]); if(L<1e-4) continue; const ux=(b[0]-a[0])/L, uy=(b[1]-a[1])/L, nx=-uy*hw, ny=ux*hw;
     parts.push([[[a[0]+nx,a[1]+ny],[b[0]+nx,b[1]+ny],[b[0]-nx,b[1]-ny],[a[0]-nx,a[1]-ny]]]);
