@@ -1187,7 +1187,7 @@ function housePanel(){
      <div class="actions">${t.bld?`<button class="btn" id="tOnly">Μόνο το κτίριο</button>`:''}${t.bld&&(t.bldRings||[]).length?`<button class="btn" id="tRoom">Χώρος από το περίγραμμα</button>`:''}<button class="btn" id="tAgain">Άλλο DXF</button><button class="btn danger" id="tDel">Αφαίρεση</button></div>`
    : `<p>Φόρτωσε το DXF του τοπογράφου για να βάλεις τους χώρους πάνω στο περίγραμμα. Αν έχει layer «lk.4495.buliding.area», το περίγραμμα του κτιρίου ξεχωρίζει μόνο του και βλέπεις το εμβαδόν του δίπλα στο μικτό της κάτοψης.</p><div class="actions"><button class="btn" id="tAgain">Φόρτωσε DXF τοπογράφου</button></div>`}
   </div>
-  <div class="actions" style="margin-top:16px"><button class="btn danger" id="bNew">Νέα κενή κάτοψη</button><button class="btn" id="bEx">Ξανά το παράδειγμα</button></div>`);
+  <div class="actions" style="margin-top:16px"><button class="btn danger" id="bNew">Νέα κενή κάτοψη</button>${(S.topo&&(S.topo.bldRings||[]).length)||S.bld?`<button class="btn danger" id="bNewT">Νέα κάτοψη από τον τοπογράφο</button>`:''}<button class="btn" id="bEx">Ξανά το παράδειγμα</button></div>`);
   side.querySelectorAll('[data-place]').forEach(b=>b.onclick=()=>pyPlace(b.dataset.place));
   bindFloors(); if(typeof ktHouseBind==='function') ktHouseBind();
   side.querySelectorAll('[data-r]').forEach(tr=>tr.onclick=()=>{ selRoom=+tr.dataset.r; render(); renderSide(); });
@@ -1203,6 +1203,8 @@ function housePanel(){
   if($('tOnly')) $('tOnly').onclick=()=>{ for(const l in S.topo.layers) S.topo.layers[l]=(l===S.topo.bld); save(); render(); renderSide(); fit(); };
   if($('tRoom')) $('tRoom').onclick=bldRoom;
   side.querySelectorAll('[data-l]').forEach(cb=>cb.onchange=()=>{ S.topo.layers[cb.dataset.l]=cb.checked; save(); render(); });
+  armConfirm('bNewT',()=>{ snap(); const n=undoS.length; S=migrate({name:'Νέα κάτοψη',next:1,ext:S.ext,int:S.int,extC:S.extC,cons:S.cons,tol:S.tol,topo:S.topo,bld:S.bld,wallOut:S.wallOut,rooms:[{id:1,name:'Χώρος 1'}],items:[]}); if(!S.bld) delete S.bld; if(!S.wallOut) delete S.wallOut; cur=1; sel=null; selRoom=null; $('planName').value=S.name; compute();
+    bldRoom(); while(undoS.length>n){ undoS.pop(); } updUndo(); if(S.items.length&&typeof ktCutStart==='function') ktCutStart(); });
   armConfirm('bNew',()=>{ snap(); S=migrate({name:'Νέα κάτοψη',next:1,ext:S.ext,int:S.int,extC:S.extC,cons:S.cons,tol:S.tol,topo:S.topo,rooms:[{id:1,name:'Χώρος 1'}],items:[]}); cur=1; sel=null; selRoom=null; $('planName').value=S.name; mode='room'; markMode(); commit(); fit(); });
   armConfirm('bEx',()=>{ snap(); S=migrate(example()); cur=1; sel=null; selRoom=null; $('planName').value=S.name; commit(); fit(); });
 }
