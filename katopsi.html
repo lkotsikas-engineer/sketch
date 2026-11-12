@@ -2259,8 +2259,9 @@ function ktHouseBox(){ const fo=FL().ol, B=bldInfo();
   <div class="tbl"><table><tbody><tr><td>Περίγραμμα ορόφου «${esc(FL().name)}»</td><td>${fo?fmt(ktStat(fo).area)+' m²':'από τους χώρους'}</td></tr>
   <tr><td>Περίγραμμα κτιρίου${S.bld?'':S.topo&&S.topo.bld?' (τοπογράφου)':''}</td><td>${B&&B.rings.length?fmt(B.area)+' m²':'—'}</td></tr></tbody></table></div>
   <div class="actions"><button class="btn" id="ktEF">Άλλαξε περίγραμμα ορόφου</button><button class="btn" id="ktEB">Άλλαξε περίγραμμα κτιρίου</button></div>
+  <div class="actions"><button class="btn" id="ktRO">Χώρος από το περίγραμμα</button></div>
   <div class="actions"><button class="btn primary" id="ktCut">Χώρισε με τη γραφίδα</button></div>${ktE9Box()}`; }
-function ktHouseBind(){ ktE9Bind(); if($('ktCut')) $('ktCut').onclick=ktCutStart; if($('ktWDir')) $('ktWDir').onchange=()=>{ snap(); if($('ktWDir').value==='out') S.wallOut=true; else delete S.wallOut; commit(); }; if($('ktEF')) $('ktEF').onclick=()=>ktEdit('floor'); if($('ktEB')) $('ktEB').onclick=()=>ktEdit('bld'); }
+function ktHouseBind(){ ktE9Bind(); if($('ktCut')) $('ktCut').onclick=ktCutStart; if($('ktRO')) $('ktRO').onclick=()=>ktRoomFromOutline(); if($('ktWDir')) $('ktWDir').onchange=()=>{ snap(); if($('ktWDir').value==='out') S.wallOut=true; else delete S.wallOut; commit(); }; if($('ktEF')) $('ktEF').onclick=()=>ktEdit('floor'); if($('ktEB')) $('ktEB').onclick=()=>ktEdit('bld'); }
 
 // ---- αποστάσεις στο πάνελ του αντικειμένου ----
 function ktDistUI(it){ const R=ktRays(it); if(!R.length) return '';
@@ -2428,8 +2429,20 @@ function ktWallsIn(apply){ if(S.wallOut) return false;
 // Στην «Οικία», με το «Χώρισε με τη γραφίδα», κάθε γραμμή που τραβάς γίνεται εσωτερικός τοίχος (πάχος KT.cutT, κέντρο πάνω στη γραμμή)
 // και κόβει όσους χώρους περνά. Οι γραμμές ισιώνουν και γυρνούν στις 90° ως προς τη μεγάλη πλευρά του χώρου.
 let KC=null;   // γραμμή που ζωγραφίζεται {id, pts}
+// χώρος από το περίγραμμα (ορόφου, αλλιώς κτιρίου): εξωτερική παρειά → χώρος μέσα στον εξωτερικό τοίχο
+function ktHasRoom(){ compute(); return S.rooms.some(r=>OL[r.id]&&OL[r.id].area>0.05); }
+function ktRoomFromOutline(quiet){ const B=bldInfo(); const ring=FL().ol||(S.bld&&S.bld.ring)||(B&&B.rings.length?B.rings.reduce((a,r)=>Math.abs(areaRing(r))>Math.abs(areaRing(a))?r:a):null);
+  if(!ring){ if(!quiet) toast('Δεν υπάρχει περίγραμμα. Πάτα πρώτα «Άλλαξε περίγραμμα ορόφου».'); return false; }
+  const ext=S.extC&&consById(S.extC)?consT(consById(S.extC)):S.ext;
+  const inner=cleanRing(offsetRing(ring,-ext)); if(inner.length<3||Math.abs(areaRing(inner))<0.5){ toast('Το περίγραμμα είναι πολύ μικρό για τον εξωτερικό τοίχο'); return false; }
+  const c=centroid(inner); snap();
+  const empty=S.rooms.find(r=>!S.items.some(it=>it.room===r.id&&!it.sub&&it.t!=='door'&&it.t!=='window'));
+  const id=empty?empty.id:newRoomId(); if(!empty) S.rooms.push({id,name:'Χώρος '+nextNo('Χώρος')});
+  S.items.push({id:S.next++,room:id,t:'poly',x:r4(c[0]),y:r4(c[1]),rot:0,sub:false,pts:inner.map(p=>[r4(p[0]-c[0]),r4(p[1]-c[1])]),src:{k:'outline'}});
+  selRoom=null; commit();
+  toast('Μπήκε χώρος '+fmt(Math.abs(areaRing(inner)))+' m² μέσα στο περίγραμμα, με εξωτερικό τοίχο '+cm(ext)+' εκ. Τώρα χώρισέ τον με τη γραφίδα.'); return true; }
 function ktCutStart(){ if(typeof wzActive==='function'&&wzActive()) wzFree(); KO=null; if(mode!=='house'){ mode='house'; markMode(); } sel=null; tool=null; markTool(); selWall=null; consEdit=null; splitting=null;
-  KT.cut={t:S.int||0.20, o90:true}; render(); renderSide(); }
+  KT.cut={t:S.int||0.20, o90:true}; if(!ktHasRoom()&&ktRoomFromOutline(true)) fit(); render(); renderSide(); }
 function ktCutSide(){ if(!KT.cut||mode!=='house') return false;
   h(`<div class="eyebrow">Χωρισμός με τη γραφίδα</div><h2>Τράβηξε τους εσωτερικούς τοίχους</h2>
   <p>Ζωγράφισε μια γραμμή πάνω στην κάτοψη, από τοίχο σε τοίχο. Κοντά σε γωνία η γραμμή κολλάει πάνω της (πράσινος κύκλος) και ο τοίχος μπαίνει στο ίσιο της πλευράς. Γίνεται εσωτερικός τοίχος και χωρίζει τον χώρο στα δύο. Μπορείς να κάνεις και γωνία (Γ). Αν δεν φτάσει ως τον τοίχο, συνεχίζει μόνη της ως εκεί.</p>
