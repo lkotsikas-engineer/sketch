@@ -101,7 +101,7 @@ function ktDrawDist(){ const it=byId(sel); if(!it||it.room!==cur) return; const 
     if(g.left>0.004) ktDim(off(g.e.a),off(g.p0),g.left,col); if(g.right>0.004) ktDim(off(g.p1),off(g.e.b),g.right,col);
     ctx.save(); ctx.strokeStyle=col; ctx.globalAlpha=0.5; ctx.lineWidth=1; ctx.setLineDash([3,3]); for(const p of [g.e.a,g.p0,g.p1,g.e.b]) line(p,off(p)); ctx.restore(); return; }
   for(const x of ktRays(it)) if(x.d>0.004) ktDim(x.a,x.b,x.d,col); }
-function ktDrawOver(){ if(mode==='house'){ ktDrawRing('bld'); ktDrawRing('floor'); } else ktDrawDist(); }
+function ktDrawOver(){ if(mode==='house'){ ktDrawE9(); ktDrawRing('bld'); ktDrawRing('floor'); } else ktDrawDist(); }
 
 // ---- πλαϊνό πάνελ: επεξεργασία περιγράμματος ----
 function ktSide(){ if(!KO||mode!=='house') return false; const k=KO.k, r=ktRing(k); if(!r){ KO=null; return false; }
@@ -140,8 +140,8 @@ function ktHouseBox(){ const fo=FL().ol, B=bldInfo();
   return `<div class="eyebrow" style="margin-top:14px">Περιγράμματα</div>
   <div class="tbl"><table><tbody><tr><td>Περίγραμμα ορόφου «${esc(FL().name)}»</td><td>${fo?fmt(ktStat(fo).area)+' m²':'από τους χώρους'}</td></tr>
   <tr><td>Περίγραμμα κτιρίου${S.bld?'':S.topo&&S.topo.bld?' (τοπογράφου)':''}</td><td>${B&&B.rings.length?fmt(B.area)+' m²':'—'}</td></tr></tbody></table></div>
-  <div class="actions"><button class="btn" id="ktEF">Άλλαξε περίγραμμα ορόφου</button><button class="btn" id="ktEB">Άλλαξε περίγραμμα κτιρίου</button></div>`; }
-function ktHouseBind(){ if($('ktEF')) $('ktEF').onclick=()=>ktEdit('floor'); if($('ktEB')) $('ktEB').onclick=()=>ktEdit('bld'); }
+  <div class="actions"><button class="btn" id="ktEF">Άλλαξε περίγραμμα ορόφου</button><button class="btn" id="ktEB">Άλλαξε περίγραμμα κτιρίου</button></div>${ktE9Box()}`; }
+function ktHouseBind(){ ktE9Bind(); if($('ktEF')) $('ktEF').onclick=()=>ktEdit('floor'); if($('ktEB')) $('ktEB').onclick=()=>ktEdit('bld'); }
 
 // ---- αποστάσεις στο πάνελ του αντικειμένου ----
 function ktDistUI(it){ const R=ktRays(it); if(!R.length) return '';
@@ -158,7 +158,7 @@ function ktGrpBind(room){ const el=$('rGrp'); if(!el) return; el.addEventListene
 
 // ---- δέντρο κτιρίου ----
 function ktStats(){ const out=S.floors.map(f=>withFloor(f.id,()=>{ compute();
-    return {f, net:HOUSE.net, foot:f.ol?ktStat(f.ol).area:HOUSE.footArea, rooms:S.rooms.map((r,i)=>({r,no:i+1,a:OL[r.id]?OL[r.id].area:0}))}; }));
+    const e9=ktE9(); return {f, e9:e9.T, net:HOUSE.net, foot:f.ol?ktStat(f.ol).area:HOUSE.footArea, rooms:S.rooms.map((r,i)=>({r,no:i+1,a:OL[r.id]?OL[r.id].area:0}))}; }));
   compute(); return out; }
 function ktTreeEl(){ let el=$('ktTree'); if(el) return el;
   const st=document.createElement('style'); st.textContent=`
@@ -199,10 +199,10 @@ function ktTree(){ if(!S) return; const el=ktTreeEl(); $('bTree').classList.togg
   const roomLi=(x,fid)=>`<li><div class="${fid===S.fl&&actR(x.r.id)?'act':''}"><span class="kt-tg"></span><span class="kt-n" data-n="r:${fid}:${x.r.id}" title="Πάτα για επιλογή, διπλό πάτημα για επεξεργασία">${x.no}. ${esc(x.r.name)}</span><span class="kt-a">${fmt(x.a)}</span></div></li>`;
   const floors=st.slice().reverse().map(x=>{ const f=x.f, fk='f'+f.id, grps=[...new Set(x.rooms.filter(y=>y.r.grp).map(y=>y.r.grp))];
     const gl=grps.map(g=>{ const rs=x.rooms.filter(y=>y.r.grp===g), gk='g'+f.id+':'+g;
-      return `<li><div>${tg(gk)}<span class="kt-n" data-n="f:${f.id}">▤ ${esc(g)}</span><span class="kt-a">${fmt(rs.reduce((s,y)=>s+y.a,0))}</span></div>${sub(gk,rs.map(y=>roomLi(y,f.id)).join(''))}</li>`; }).join('');
+      return `<li><div>${tg(gk)}<span class="kt-n" data-n="f:${f.id}" title="Καθαρό της ομάδας">▤ ${esc(g)}</span><span class="kt-a">${fmt(rs.reduce((s,y)=>s+y.a,0))}</span></div>${sub(gk,rs.map(y=>roomLi(y,f.id)).join(''))}</li>`; }).join('');
     const rl=x.rooms.filter(y=>!y.r.grp).map(y=>roomLi(y,f.id)).join('');
     const fa=f.id===S.fl&&mode==='house'&&selRoom==null&&!(KO&&KO.k==='bld');
-    return `<li><div class="${fa?'act':''}">${tg(fk)}<span class="kt-n" data-n="f:${f.id}" title="${f.ol?'Μικτό από το περίγραμμα ορόφου':'Μικτό από τους χώρους'}">▭ ${esc(f.name)}</span><span class="kt-a">${fmt(x.foot)}</span><button class="kt-e" data-e="f:${f.id}" title="Άλλαξε περίγραμμα ορόφου">✎</button></div>${sub(fk,gl+rl)}</li>`; }).join('');
+    return `<li><div class="${fa?'act':''}">${tg(fk)}<span class="kt-n" data-n="f:${f.id}" title="${f.ol?'Μικτό από το περίγραμμα ορόφου':'Μικτό από τους χώρους'}">▭ ${esc(f.name)}</span><span class="kt-a">${fmt(x.foot)}</span><button class="kt-e" data-e="f:${f.id}" title="Άλλαξε περίγραμμα ορόφου">✎</button></div>${x.e9.kyr+x.e9.voith>0?`<div style="padding:0 4px 2px 40px;font-size:11px;color:var(--ink-2);min-height:0">ΚΧ ${fmt(x.e9.kyr)} · ΒΧ ${fmt(x.e9.voith)}</div>`:''}${sub(fk,gl+rl)}</li>`; }).join('');
   el.innerHTML=`<div class="kt-h" title="Σύρε από εδώ για να το μετακινήσεις"><span>Δέντρο κτιρίου</span><button class="btn" id="ktM" title="${KT.min?'Άνοιγμα':'Μάζεμα'}">${KT.min?'▾':'▴'}</button><button class="btn" id="ktX" title="Κλείσιμο">✕</button></div>
   <div class="kt-b"><ul><li><div class="${KO&&KO.k==='bld'?'act':''}">${tg('b')}<span class="kt-n" data-n="b" title="Όλο το κτίριο">⌂ ${esc(S.name||'Κτίριο')}</span><span class="kt-a" title="Μικτό όλων των ορόφων">${fmt(tot.foot)}</span><button class="kt-e" data-e="b" title="Άλλαξε περίγραμμα κτιρίου">✎</button></div>
   ${sub('b',floors)}</li></ul>
@@ -229,5 +229,55 @@ function ktTree(){ if(!S) return; const el=ktTreeEl(); $('bTree').classList.togg
 }
 function ktDXF(PLINE,TEXT){ const fo=FL().ol;
   if(fo){ PLINE('FLOOR-OUTLINE',fo,true); const ed=edgesOf([[fo]]); for(const e of ed){ const m=[(e.a[0]+e.b[0])/2-e.nx*0.45,(e.a[1]+e.b[1])/2-e.ny*0.45]; TEXT('FLOOR-OUTLINE',m,0.12,fmt(e.L),Math.atan2(e.uy,e.ux)); } }
-  if(S.bld&&S.bld.ring) PLINE('BUILDING',S.bld.ring,true); }
-function ktDXFRows(row){ if(FL().ol) row('Μικτό από το περίγραμμα ορόφου: '+fmt(ktStat(FL().ol).area)+' m²',0.15); if(S.bld&&S.bld.ring) row('Περίγραμμα κτιρίου: '+fmt(ktStat(S.bld.ring).area)+' m²',0.15); }
+  if(S.bld&&S.bld.ring) PLINE('BUILDING',S.bld.ring,true);
+  for(const x of ktE9().rooms){ if(x.u!=='kyr'&&x.u!=='voith') continue; for(const poly of x.polys) for(const r of poly) PLINE('E9',r,true); } }
+function ktDXFRows(row){ const E=ktE9(); if(E.sum>0){ row('Ε9 (με ½ εσωτερικών και όλους τους εξωτερικούς τοίχους): ΚΧ '+fmt(E.T.kyr)+' m², ΒΧ '+fmt(E.T.voith)+' m²',0.15);
+    const grps=[...new Set(E.rooms.map(x=>x.room.grp).filter(Boolean))]; for(const g of grps){ const t={kyr:0,voith:0}; for(const x of E.rooms) if(x.room.grp===g&&t[x.u]!=null) t[x.u]+=x.e9; row('  '+g+': ΚΧ '+fmt(t.kyr)+' m², ΒΧ '+fmt(t.voith)+' m²',0.12); } }
+  if(FL().ol) row('Μικτό από το περίγραμμα ορόφου: '+fmt(ktStat(FL().ol).area)+' m²',0.15); if(S.bld&&S.bld.ring) row('Περίγραμμα κτιρίου: '+fmt(ktStat(S.bld.ring).area)+' m²',0.15); }
+
+// ---------- Ε9: κύριοι (ΚΧ) / βοηθητικοί (ΒΧ) χώροι με τοίχους ----------
+// Κάθε κλειστός χώρος παίρνει το μισό πάχος των εσωτερικών τοίχων του και όλο το πάχος των εξωτερικών.
+// Ημιυπαίθριοι / εξώστες μένουν με το καθαρό τους. Τρέχων όροφος (S.rooms, OL, WALLS, HOUSE από το compute).
+const E9U = {kyr:'ΚΧ', voith:'ΒΧ', imiy:'Ημιυπ.', exo:'Εξώστ.'};
+function ktPolyArea(P){ let a=0; for(const poly of P){ a+=Math.abs(areaRing(poly[0])); for(let i=1;i<poly.length;i++) a-=Math.abs(areaRing(poly[i])); } return a; }
+function ktE9(){ const out=[], closed=[];
+  for(const room of S.rooms){ const o=OL[room.id]; if(!o||!o.polys.length) continue; const u=useOf(room);
+    if(isOpen(room)){ out.push({room,u,net:o.area,e9:o.area,polys:o.polys}); continue; }
+    // 1) μισό εσωτερικό, όλο το εξωτερικό· όπου ο τοίχος είναι μισός εξωτερικός, πρώτα μόνο το μισό του κενού
+    let P=o.polys.map((poly,pi)=>{ const r=poly[0], d=r.map((a,i)=>{ const W=WALLS.find(w=>w.room===room.id&&w.pi===pi&&w.i===i); return !W?0 : W.ext&&!W.part? W.d : W.gap/2; });
+      return [varOffset(r,d)].concat(poly.slice(1)); });
+    try{ if(HOUSE.foot.length) P=PC.intersection(P,HOUSE.foot); }catch(e){}
+    const x={room,u,net:o.area,polys:P}; out.push(x); closed.push(x); }
+  // 2) καμία επικάλυψη: ό,τι πήρε ήδη ένας χώρος δεν το ξαναπαίρνει άλλος
+  let taken=[]; for(const x of closed){ try{ if(taken.length) x.polys=PC.difference(x.polys,taken); taken=taken.length?PC.union(taken,x.polys):x.polys; }catch(e){} }
+  // 3) ό,τι περίσσεψε από το μικτό (εξωτερικός τοίχος σε μισό-εξωτερικές πλευρές, γωνίες) πάει στον χώρο που ακουμπά
+  try{ if(HOUSE.foot.length&&closed.length){ const rest=taken.length?PC.difference(HOUSE.foot,taken):HOUSE.foot;
+    for(const piece of rest){ if(Math.abs(areaRing(piece[0]))<1e-5) continue; let best=null, bd=1e9;
+      for(const x of closed){ let d=0; for(const p of piece[0]){ let m=1e9; for(const poly of x.polys) for(const r of poly) for(let i=0;i<r.length;i++){ const q=segNear(p,r[i],r[(i+1)%r.length]); m=Math.min(m,Math.hypot(q[0]-p[0],q[1]-p[1])); } d+=m; } d/=piece[0].length; if(d<bd){ bd=d; best=x; } }
+      if(best) best.polys=PC.union(best.polys,[piece]); } } }catch(e){}
+  for(const x of closed) x.e9=ktPolyArea(x.polys);
+  const T={kyr:0,voith:0,imiy:0,exo:0}; for(const x of out) T[x.u]+=x.e9;
+  return {rooms:out, T, sum:T.kyr+T.voith, foot:HOUSE.footArea}; }
+function ktE9Box(){ const E=ktE9(); if(!E.rooms.length) return '';
+  const grps=[...new Set(E.rooms.map(x=>x.room.grp||''))], many=grps.length>1||grps[0]!=='';
+  const row=x=>`<tr class="nohov"><td>${roomNo(x.room.id)}. ${esc(x.room.name)}</td><td><button class="kbtn kU" data-u="${x.room.id}" title="Άλλαξε κύριος / βοηθητικός" style="font-size:13px;min-height:30px">${E9U[x.u]}</button></td><td style="padding-left:8px">${fmt(x.net)}</td><td style="padding-left:8px"><b>${fmt(x.e9)}</b></td></tr>`;
+  const sub=(g,rs)=>{ const t={kyr:0,voith:0}; for(const x of rs) if(t[x.u]!=null) t[x.u]+=x.e9; return `<tr class="nohov"><td colspan="2" style="text-align:left"><b>${esc(g||'Χωρίς ομάδα')}</b></td><td colspan="2" style="color:var(--ink-2)">ΚΧ ${fmt(t.kyr)} · ΒΧ ${fmt(t.voith)}</td></tr>`; };
+  const body=grps.map(g=>{ const rs=E.rooms.filter(x=>(x.room.grp||'')===g); return (many?sub(g,rs):'')+rs.map(row).join(''); }).join('');
+  const d=E.sum-E.foot, ok=Math.abs(d)<=Math.max(0.05,E.foot*0.002);
+  return `<div class="eyebrow" style="margin-top:14px">Ε9 · κύριοι και βοηθητικοί με τοίχους</div>
+  <p>Κάθε χώρος παίρνει το μισό πάχος των εσωτερικών τοίχων και όλο το πάχος των εξωτερικών. Πάτα ΚΧ / ΒΧ για να αλλάξεις τη χρήση.</p>
+  <div class="tbl"><table><thead><tr><th>Χώρος</th><th style="padding-left:8px">Χρήση</th><th style="padding-left:8px">Καθαρό</th><th style="padding-left:8px">Ε9</th></tr></thead><tbody>${body}</tbody>
+  <tfoot><tr><td>Κύριοι χώροι (ΚΧ)</td><td></td><td></td><td>${fmt(E.T.kyr)}</td></tr><tr><td>Βοηθητικοί χώροι (ΒΧ)</td><td></td><td></td><td>${fmt(E.T.voith)}</td></tr>
+  <tr><td>ΚΧ + ΒΧ</td><td></td><td></td><td>${fmt(E.sum)}</td></tr><tr><td>Μικτό ορόφου</td><td></td><td></td><td>${fmt(E.foot)}</td></tr>
+  <tr><td>Διαφορά</td><td></td><td></td><td style="color:var(--${ok?'ok':'warn'})">${d>0?'+':''}${fmt(d)}</td></tr>
+  ${E.T.imiy>0?`<tr><td>Ημιυπαίθριοι (καθαρό)</td><td></td><td></td><td>${fmt(E.T.imiy)}</td></tr>`:''}${E.T.exo>0?`<tr><td>Εξώστες (καθαρό)</td><td></td><td></td><td>${fmt(E.T.exo)}</td></tr>`:''}</tfoot></table></div>
+  ${ok?'':'<p style="font-size:12px;color:var(--warn)">Η διαφορά βγαίνει συνήθως από καμινάδες, κενά ανάμεσα σε χώρους ή τοίχους που δεν ακουμπούν σε χώρο. Δες τα στην κάτοψη.</p>'}
+  <div class="actions"><button class="btn ${KT.e9?'on':''}" id="ktE9">${KT.e9?'Κρύψε τα Ε9 από την κάτοψη':'Δείξε τα Ε9 στην κάτοψη'}</button></div>`; }
+function ktE9Bind(){ side.querySelectorAll('.kU').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const r=roomById(+b.dataset.u); if(!r) return; snap(); r.use=useOf(r)==='kyr'?'voith':'kyr'; commit(); });
+  if($('ktE9')) $('ktE9').onclick=()=>{ KT.e9=!KT.e9; render(); renderSide(); }; }
+function ktDrawE9(){ if(!KT.e9) return; const E=ktE9(); ctx.save();
+  for(const x of E.rooms){ if(x.u!=='kyr'&&x.u!=='voith') continue; const col=x.u==='kyr'?colors.accent:colors.warn;
+    ctx.fillStyle=col; ctx.globalAlpha=0.16; polyPath(x.polys); ctx.fill('evenodd'); ctx.globalAlpha=0.9; ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.setLineDash([6,3]); polyPath(x.polys); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1;
+    const o=OL[x.room.id]; if(!o||!o.polys.length) continue; let big=o.polys[0]; for(const p of o.polys) if(p.area>big.area) big=p; let c=centroid(big[0]); if(!inPolys(c,o.polys)) c=big[0][0]; const s=W2S(c);
+    text(E9U[x.u]+' '+fmt(x.e9)+' m²',[s[0],s[1]+(view.s>35?42:24)],12,col,0,'700',true); }
+  ctx.restore(); }
