@@ -252,8 +252,8 @@ const WZ_STEPS = {
     body:()=>`<p class="wz-lead">Πάχος τοίχων για όλο το σπίτι. Ξεχωριστό τοίχο τον αλλάζεις στην ελεύθερη σχεδίαση, πατώντας πάνω του.</p>
       <div class="form"><label class="f">Εξωτερικοί τοίχοι<select id="wzExtC"><option value="">— μόνο πάχος —</option>${consOpts(S.extC,'ext')}</select></label>
       <div class="row">${S.extC&&consById(S.extC)?`<label class="f">Πάχος εξωτερικών (m)<input value="${fmt(consT(consById(S.extC)))}" disabled></label>`:field('wzExt','Πάχος εξωτερικών (m)',fmt(S.ext))}${field('wzInt','Εσωτερικοί (m)',fmt(S.int))}</div></div>`,
-    bind:()=>{ $('wzExtC').onchange=()=>{ snap(); S.extC=$('wzExtC').value||null; commit(); };
-      const wb=(id,k)=>{ const el=$(id); if(!el) return; el.addEventListener('change',()=>{ const v=num(el.value); if(v>=0&&v<3){ snap(); S[k]=v; commit(); } }); el.addEventListener('keydown',e=>{ if(e.key==='Enter') el.blur(); }); };
+    bind:()=>{ $('wzExtC').onchange=()=>{ const v=$('wzExtC').value||null; extCh(()=>{ S.extC=v; }); };
+      const wb=(id,k)=>{ const el=$(id); if(!el) return; el.addEventListener('change',()=>{ const v=num(el.value); if(v>=0&&v<3){ if(k==='ext') extCh(()=>{ S[k]=v; }); else { snap(); S[k]=v; commit(); } } }); el.addEventListener('keydown',e=>{ if(e.key==='Enter') el.blur(); }); };
       wb('wzExt','ext'); wb('wzInt','int'); },
     next:()=>({to: S.topo&&S.topo.bld?'topocmp':'areas'}) },
   topocmp:{ phase:'C', n:'16', mode:'house',

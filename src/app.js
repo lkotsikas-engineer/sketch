@@ -1026,10 +1026,13 @@ function stripExtOverrides(roomId){ const room=roomById(roomId); if(!room||!room
 function moveRoom(id,dx,dy){ for(const it of roomItems(id)){ it.x=r4(it.x+dx); it.y=r4(it.y+dy); } }
 // who: 'nb' μετακινείται ο διπλανός, 'self' μετακινείται ο ίδιος ο χώρος
 function setWallT(w,v,who,noSnap){ if(!(v>0&&v<3)) return toast('Γράψε πάχος σε μέτρα, π.χ. 0.20');
-  const room=roomById(w.room); if(!noSnap) snap();
-  if(w.ext){ upsertOverride(room,w.a,w.b,{t:r4(v)}); commit(); return toast('Ο τοίχος έγινε '+cm(v)+' εκ. Ο χώρος έμεινε ίδιος.'); }
+  const room=roomById(w.room);
+  if(w.ext){ if(typeof ktWallsIn==='function'&&ktWallsIn(()=>upsertOverride(room,w.a,w.b,{t:r4(v)}))) return; if(!noSnap) snap(); upsertOverride(room,w.a,w.b,{t:r4(v)}); commit(); return toast('Ο τοίχος έγινε '+cm(v)+' εκ. Ο χώρος έμεινε ίδιος.'); }
+  if(!noSnap) snap();
   const delta=v-w.gap; if(who==='self') moveRoom(w.room,-w.on[0]*delta,-w.on[1]*delta); else if(w.nb!=null) moveRoom(w.nb,w.on[0]*delta,w.on[1]*delta);
   commit(); const mv=roomById(who==='self'?w.room:w.nb); toast('Ο τοίχος έγινε '+cm(v)+' εκ. Μετακινήθηκε '+(delta>0?'':'πίσω ')+'ο «'+(mv?mv.name:'')+'» κατά '+cm(Math.abs(delta))+' εκ.'); }
+// αλλαγή που μπορεί να αλλάξει πάχος εξωτερικών τοίχων: στο αντίγραφο δοκιμής το πάχος αλλάζει από την εσωτερική παρειά
+function extCh(fn){ if(typeof ktWallsIn==='function'&&ktWallsIn(fn)) return; snap(); fn(); commit(); }
 let wallWho='nb';
 function wallPanel(w){
   const room=roomById(w.room), nb=w.nb!=null?roomById(w.nb):null;
@@ -1050,11 +1053,11 @@ function wallPanel(w){
   $('wTGo').onclick=go; enterChain(['wT'],go);
   if($('wMvN')){ $('wMvN').onclick=()=>{ wallWho='nb'; renderSide(); }; $('wMvS').onclick=()=>{ wallWho='self'; renderSide(); }; }
   $('wC').onchange=()=>{ const c=consById($('wC').value);
-    if(w.ext){ snap(); upsertOverride(room,w.a,w.b,c?{c:c.id}:{t:w.T}); commit(); return; }
+    if(w.ext){ extCh(()=>upsertOverride(room,w.a,w.b,c?{c:c.id}:{t:w.T})); return; }
     if(c){ snap(); upsertOverride(room,w.a,w.b,{c:c.id}); setWallT(w,consT(c),wallWho,true); } else { snap(); upsertOverride(room,w.a,w.b,{}); commit(); } };
   if($('wEdit')) $('wEdit').onclick=()=>{ consEdit=w.c.id; selWall=null; renderSide(); render(); };
-  if($('wApR')) $('wApR').onclick=()=>{ snap(); stripExtOverrides(room.id); room.extC=w.c.id; commit(); toast('Όλοι οι εξωτερικοί τοίχοι του «'+room.name+'»: '+w.c.name); };
-  if($('wApH')) $('wApH').onclick=()=>{ snap(); for(const r of S.rooms){ stripExtOverrides(r.id); delete r.extC; } if(w.c) S.extC=w.c.id; else { S.extC=null; S.ext=w.T; } commit(); toast('Όλοι οι εξωτερικοί τοίχοι του σπιτιού: '+(w.c?w.c.name:cm(w.T)+' εκ.')); };
+  if($('wApR')) $('wApR').onclick=()=>{ extCh(()=>{ stripExtOverrides(room.id); room.extC=w.c.id; }); toast('Όλοι οι εξωτερικοί τοίχοι του «'+room.name+'»: '+w.c.name); };
+  if($('wApH')) $('wApH').onclick=()=>{ extCh(()=>{ for(const r of S.rooms){ stripExtOverrides(r.id); delete r.extC; } if(w.c) S.extC=w.c.id; else { S.extC=null; S.ext=w.T; } }); toast('Όλοι οι εξωτερικοί τοίχοι του σπιτιού: '+(w.c?w.c.name:cm(w.T)+' εκ.')); };
   $('wOk').onclick=()=>{ selWall=null; render(); renderSide(); };
 }
 function consPanel(c){
@@ -1068,7 +1071,7 @@ function consPanel(c){
   <label class="f">+ Στρώση από βιβλιοθήκη<select id="cAdd"><option value="">— διάλεξε υλικό —</option>${Object.entries(MATL).map(([k,m])=>`<option value="${k}">${m.n} · ${cm(m.t)} εκ.</option>`).join('')}</select></label>
   <div class="note"><b>Σύνολο ${cm(consT(c))} εκ.</b> · ${used? 'τη χρησιμοποιούν '+used+' τοίχοι' : 'δεν τη χρησιμοποιεί κανένας τοίχος ακόμα'}${consInsOut(c)?' · η εξωτερική μόνωση ('+cm(consInsOut(c))+' εκ.) γράφεται χωριστά στο μικτό':''}</div>
   <div class="actions"><button class="btn" id="cDup">Αντίγραφο</button><button class="btn danger" id="cDel">Διαγραφή</button><button class="btn primary" id="cOk">Τέλος</button></div></div>`);
-  const ch=fn=>{ snap(); fn(); saveConsLib(); commit(); };
+  const ch=fn=>{ extCh(()=>{ fn(); saveConsLib(); }); };
   $('cN').addEventListener('change',()=>ch(()=>{ c.name=$('cN').value.trim()||c.name; }));
   $('cKe').onclick=()=>ch(()=>{ c.kind='ext'; }); $('cKi').onclick=()=>ch(()=>{ c.kind='int'; });
   side.querySelectorAll('[data-lm]').forEach(el=>el.onchange=()=>ch(()=>{ const l=c.layers[+el.dataset.lm]; l.m=el.value; l.t=MATL[l.m].t; }));
