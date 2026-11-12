@@ -986,7 +986,7 @@ function housePanel(){
   if($('tRoom')) $('tRoom').onclick=bldRoom;
   side.querySelectorAll('[data-l]').forEach(cb=>cb.onchange=()=>{ S.topo.layers[cb.dataset.l]=cb.checked; save(); render(); });
   armConfirm('bNewT',()=>{ snap(); const n=undoS.length; S=migrate({name:'Νέα κάτοψη',next:1,ext:S.ext,int:S.int,extC:S.extC,cons:S.cons,tol:S.tol,topo:S.topo,bld:S.bld,wallOut:S.wallOut,rooms:[{id:1,name:'Χώρος 1'}],items:[]}); if(!S.bld) delete S.bld; if(!S.wallOut) delete S.wallOut; cur=1; sel=null; selRoom=null; $('planName').value=S.name; compute();
-    bldRoom(); while(undoS.length>n){ undoS.pop(); } updUndo(); if(S.items.length&&typeof ktCutStart==='function') ktCutStart(); });
+    bldRoom(); if(S.items.length&&typeof ktCutStart==='function') ktCutStart(); while(undoS.length>n){ undoS.pop(); } updUndo(); });
   armConfirm('bNew',()=>{ snap(); S=migrate({name:'Νέα κάτοψη',next:1,ext:S.ext,int:S.int,extC:S.extC,cons:S.cons,tol:S.tol,topo:S.topo,rooms:[{id:1,name:'Χώρος 1'}],items:[]}); cur=1; sel=null; selRoom=null; $('planName').value=S.name; mode='room'; markMode(); commit(); fit(); });
   armConfirm('bEx',()=>{ snap(); S=migrate(example()); cur=1; sel=null; selRoom=null; $('planName').value=S.name; commit(); fit(); });
 }
@@ -1040,6 +1040,7 @@ function setWallT(w,v,who,noSnap){ if(!(v>0&&v<3)) return toast('Γράψε πά
 function extCh(fn){ if(typeof ktWallsIn==='function'&&ktWallsIn(fn)) return; snap(); fn(); commit(); }
 let wallWho='nb';
 function wallPanel(w){
+  if(!w.ext&&typeof wmWallPanel==='function'&&wmWallPanel(w)) return;
   const room=roomById(w.room), nb=w.nb!=null?roomById(w.nb):null;
   const srcTxt={wall:'μόνο αυτός ο τοίχος',room:'όλοι οι εξωτερικοί του χώρου',house:'όλο το σπίτι',gap:'το κενό ανάμεσα στους χώρους'}[w.src]||'';
   h(`<div class="eyebrow">Τοίχος · ${esc(room.name)}${nb&&!w.ext?' και '+esc(nb.name):''}</div><h2>${w.ext?'Εξωτερικός τοίχος':'Εσωτερικός τοίχος'}</h2>
