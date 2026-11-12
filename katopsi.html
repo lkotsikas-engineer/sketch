@@ -493,12 +493,12 @@ function penOp(){ return penOpt.op || (roomItems(cur).some(isShape)?'add':'new')
 function penToolPanel(){ const op=penOp(), has=roomItems(cur).some(isShape);
   h(`<div class="eyebrow">Γραφίδα · ${esc(roomById(cur).name)}</div><h2>Σχεδίασε με τη γραφίδα</h2>
   <p>Ζωγράφισε το περίγραμμα με μία γραμμή, χωρίς να σηκώσεις τη γραφίδα. Οι πλευρές ισιώνουν μόνες τους και οι γωνίες κουμπώνουν σε 90° ή 45°. Μετά γράφεις τα μήκη ή τα μετράς με το DISTO.</p>
-  <div class="seg" role="group" aria-label="Τι κάνει το σκίτσο"><button data-pop="new" class="${op==='new'?'on':''}">Νέο σχήμα</button><button data-pop="add" class="${op==='add'?'on':''}" ${has?'':'disabled'}>Πρόσθεσε</button><button data-pop="sub" class="${op==='sub'?'on':''}" ${has?'':'disabled'}>Αφαίρεσε</button></div>
+  <div class="seg" role="group" aria-label="Τι κάνει το σκίτσο"><button data-pop="new" class="${op==='new'?'on':''}">Νέο σχήμα</button><button data-pop="add" class="${op==='add'?'on':''}" ${has?'':'disabled'}>Πρόσθεσε</button><button data-pop="sub" class="${op==='sub'?'on':''}" ${has?'':'disabled'}>Αφαίρεσε</button>${typeof ktCutStart==='function'?`<button data-pop="cut" ${has?'':'disabled'} title="Τράβηξε εσωτερικούς τοίχους και χώρισε το κτίριο σε χώρους">Χώρισε σε χώρους</button>`:''}</div>
   <p style="font-size:13px">${op==='new'?(has?'Το σκίτσο αντικαθιστά το σχήμα του χώρου (οι πόρτες και τα έπιπλα μένουν).':'Το σκίτσο γίνεται το σχήμα του χώρου.'):op==='add'?'Ζωγράφισε το κομμάτι που λείπει, π.χ. μια εσοχή ή ένα σαλονάκι. Ενώνεται με τον χώρο.':'Ζωγράφισε το κομμάτι που φεύγει, π.χ. μια γωνία ή μια καμινάδα. Κόβεται από τον χώρο.'}</p>
   <label class="f"><span><input type="checkbox" id="penO90" ${penOpt.only90?'checked':''}> Μόνο ορθές γωνίες</span></label>
   <div class="note">Με γραφίδα, το δάχτυλο μετακινεί την κάτοψη. Δύο δάχτυλα για ζουμ.</div>
   <div class="actions"><button class="btn" id="penNo">Άκυρο</button></div>`);
-  side.querySelectorAll('[data-pop]').forEach(b=>b.onclick=()=>{ penOpt.op=b.dataset.pop; penToolPanel(); });
+  side.querySelectorAll('[data-pop]').forEach(b=>b.onclick=()=>{ if(b.dataset.pop==='cut'){ tool=null; markTool(); ktCutStart(); return; } penOpt.op=b.dataset.pop; penToolPanel(); });
   $('penO90').onchange=()=>{ penOpt.only90=$('penO90').checked; };
   $('penNo').onclick=()=>{ tool=null; markTool(); renderSide(); render(); }; }
 const PEN_K={m:'μετρημένη',c:'υπολογίστηκε',s:'από το σκίτσο',x:'λάθος σχήμα'};
