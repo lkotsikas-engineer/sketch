@@ -51,16 +51,16 @@ function ktSnapEdges(){ const E=[]; for(const r of ktRings()) for(let i=0;i<r.le
 // ---- δείκτης (ποντίκι / δάχτυλο / γραφίδα) ----
 function ktDown(x,y,e){
   if(KT.cut&&mode==='house'){ if(e&&e.pointerType==='pen') penSeen=true; if(e&&e.pointerType==='touch'&&penSeen){ drag={pan:true,sx:x,sy:y,ox:view.ox,oy:view.oy}; return true; }
-    KC={id:e?e.pointerId:0,pts:[S2W(x,y)]}; render(); return true; }
+    KC={id:e?e.pointerId:0,pts:[S2W(x,y)]}; snapMark=ktNearCorner(KC.pts[0],26); render(); return true; }
   if(!KO||mode!=='house') return false; const r=ktRing(KO.k); if(!r) return false; const n=r.length;
   for(let i=0;i<n;i++){ const s=W2S(r[i]); if(Math.hypot(s[0]-x,s[1]-y)<14){ KD={i,pre:snapStr(),moved:false,sx:x,sy:y}; if(KO.act!==i){ KO.act=i; renderSide(); } render(); return true; } }
   for(let i=0;i<n;i++){ const a=r[i], b=r[(i+1)%n], s=W2S([(a[0]+b[0])/2,(a[1]+b[1])/2]); if(Math.hypot(s[0]-x,s[1]-y)<12){ const pre=snapStr();
       r.splice(i+1,0,[r4((a[0]+b[0])/2),r4((a[1]+b[1])/2)]); KD={i:i+1,pre,moved:true,sx:x,sy:y}; KO.act=i+1; render(); return true; } }
   drag={pan:true,sx:x,sy:y,ox:view.ox,oy:view.oy}; return true; }
-function ktMove(x,y){ if(KC){ const p=S2W(x,y), q=KC.pts[KC.pts.length-1]; if(Math.hypot(p[0]-q[0],p[1]-q[1])*view.s>=3){ KC.pts.push(p); render(); } return true; }
+function ktMove(x,y){ if(KC){ const p=S2W(x,y), q=KC.pts[KC.pts.length-1]; snapMark=ktNearCorner(p,26); if(Math.hypot(p[0]-q[0],p[1]-q[1])*view.s>=3){ KC.pts.push(p); render(); } return true; }
   if(!KD||!KO) return false; if(!KD.moved&&Math.hypot(x-KD.sx,y-KD.sy)<4) return true; KD.moved=true;
   const r=ktRing(KO.k); if(!r) return true; r[KD.i]=ktSnap(S2W(x,y),KD.i); render(); return true; }
-function ktUp(){ if(KC){ const raw=KC.pts; KC=null; ktCutFinish(raw); render(); return true; }
+function ktUp(){ if(KC){ const raw=KC.pts; KC=null; snapMark=null; ktCutFinish(raw); render(); return true; }
   if(!KD) return false; const m=KD.moved; if(m){ undoS.push(KD.pre); redoS=[]; updUndo(); } KD=null; snapMark=null; if(m) commit(); else render(); return true; }
 
 // ---- σχεδίαση ----
@@ -320,7 +320,7 @@ function ktCutStart(){ if(typeof wzActive==='function'&&wzActive()) wzFree(); KO
   KT.cut={t:S.int||0.20, o90:true}; render(); renderSide(); }
 function ktCutSide(){ if(!KT.cut||mode!=='house') return false;
   h(`<div class="eyebrow">Χωρισμός με τη γραφίδα</div><h2>Τράβηξε τους εσωτερικούς τοίχους</h2>
-  <p>Ζωγράφισε μια γραμμή πάνω στην κάτοψη, από τοίχο σε τοίχο. Γίνεται εσωτερικός τοίχος και χωρίζει τον χώρο στα δύο. Μπορείς να κάνεις και γωνία (Γ). Αν δεν φτάσει ως τον τοίχο, συνεχίζει μόνη της ως εκεί.</p>
+  <p>Ζωγράφισε μια γραμμή πάνω στην κάτοψη, από τοίχο σε τοίχο. Κοντά σε γωνία η γραμμή κολλάει πάνω της (πράσινος κύκλος) και ο τοίχος μπαίνει στο ίσιο της πλευράς. Γίνεται εσωτερικός τοίχος και χωρίζει τον χώρο στα δύο. Μπορείς να κάνεις και γωνία (Γ). Αν δεν φτάσει ως τον τοίχο, συνεχίζει μόνη της ως εκεί.</p>
   <div class="form"><div class="row">${field('kcT','Πάχος τοίχου (m)',fmt(KT.cut.t))}<label class="f"><span><input type="checkbox" id="kc90" ${KT.cut.o90?'checked':''}> Μόνο ορθές γωνίες</span></label></div></div>
   <p style="font-size:13px;color:var(--ink-2)">Με γραφίδα: το δάχτυλο μετακινεί την κάτοψη. Με ποντίκι: σύρε για γραμμή, με τη ροδέλα κάνεις ζουμ. Μετά άλλαξε τα ονόματα πατώντας τους χώρους.</p>
   <div class="actions"><button class="btn" id="kcUndo" ${undoS.length?'':'disabled'}>↶ Αναίρεση</button><button class="btn primary" id="kcOk">Τέλος</button></div>`);
@@ -329,9 +329,16 @@ function ktCutSide(){ if(!KT.cut||mode!=='house') return false;
   $('kcUndo').onclick=()=>$('bUndo').click();
   $('kcOk').onclick=()=>{ KT.cut=null; KC=null; render(); renderSide(); };
   return true; }
+function ktCorners(){ const C=[]; for(const r of S.rooms){ const o=OL[r.id]; if(o) for(const e of o.edges) C.push({p:e.a,e}); } for(const poly of HOUSE.foot) for(const q of poly[0]) C.push({p:q,e:null}); return C; }
+function ktNearCorner(p,tolPx){ const tol=(tolPx||22)/view.s; let best=null, bd=tol; for(const c of ktCorners()){ const d=Math.hypot(c.p[0]-p[0],c.p[1]-p[1]); if(d<bd){ bd=d; best=c.p; } } return best; }
+// πλευρά χώρου που ξεκινά ή τελειώνει στη γωνία c και είναι στην ίδια ευθεία με τη διεύθυνση u
+function ktFaceAt(c,u){ for(const r of S.rooms){ const o=OL[r.id]; if(!o) continue; for(const e of o.edges){ const at=Math.hypot(e.a[0]-c[0],e.a[1]-c[1])<1e-3||Math.hypot(e.b[0]-c[0],e.b[1]-c[1])<1e-3; if(at&&Math.abs(e.ux*u[1]-e.uy*u[0])<0.03) return e; } } return null; }
 function ktLongAxis(polys){ let best=0, bl=0; for(const poly of polys) for(const r of poly) for(let i=0;i<r.length;i++){ const a=r[i], b=r[(i+1)%r.length], L=Math.hypot(b[0]-a[0],b[1]-a[1]); if(L>bl){ bl=L; best=Math.atan2(b[1]-a[1],b[0]-a[0]); } } return best; }
 function ktCutFinish(raw){ if(raw.length<2) return; const t=KT.cut.t;
-  let P=penRdp(raw,Math.max(0.12,10/view.s)); if(P.length<2) return; const span=Math.hypot(P[P.length-1][0]-P[0][0],P[P.length-1][1]-P[0][1]); if(span<0.3&&P.length<3) return toast('Πολύ μικρή γραμμή');
+  let P=penRdp(raw,Math.max(0.12,10/view.s)); if(P.length<2) return;
+  // γωνίες: όποιο σημείο της γραμμής πέφτει κοντά σε γωνία χώρου, κολλάει πάνω της
+  const snapped=P.map(p=>{ const c=ktNearCorner(p,26); return c?c.slice():null; }); P=P.map((p,i)=>snapped[i]||p);
+  if(!snapped[0]&&snapped[P.length-1]){ P.reverse(); snapped.reverse(); } const span=Math.hypot(P[P.length-1][0]-P[0][0],P[P.length-1][1]-P[0][1]); if(span<0.3&&P.length<3) return toast('Πολύ μικρή γραμμή');
   // χώρος που πατά η γραμμή: για τον άξονα των 90°
   const mid=raw[Math.floor(raw.length/2)]; const hitR=S.rooms.find(r=>OL[r.id]&&inPolys(mid,OL[r.id].polys))||S.rooms.find(r=>OL[r.id]&&OL[r.id].polys.length);
   if(!hitR) return toast('Δεν υπάρχει χώρος για να χωρίσεις');
@@ -344,6 +351,10 @@ function ktCutFinish(raw){ if(raw.length<2) return; const t=KT.cut.t;
   // συγχώνευση διαδοχικών τμημάτων με ίδια διεύθυνση
   const R=[Q[0]]; for(let i=1;i<Q.length;i++){ if(R.length>=2){ const a=R[R.length-2], b=R[R.length-1], c=Q[i], c1=(b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]); if(Math.abs(c1)<1e-6){ R[R.length-1]=c; continue; } } R.push(Q[i]); }
   if(R.length<2) return;
+  // αν ένα άκρο ξεκινά από γωνία, ο τοίχος μπαίνει στο ίδιο ίσιο με την πλευρά της γωνίας (η παρειά του συνεχίζει την πλευρά)
+  const flush=(i0,i1)=>{ const a=R[i0], b=R[i1], L=Math.hypot(b[0]-a[0],b[1]-a[1]); if(L<1e-4) return false; const u=[(b[0]-a[0])/L,(b[1]-a[1])/L], e=ktFaceAt(a,u); if(!e) return false;
+    const v=[e.nx*t/2,e.ny*t/2]; for(const k of [i0,i1]) R[k]=[R[k][0]+v[0],R[k][1]+v[1]]; return true; };
+  let fl=0; if(snapped[0]) fl+=flush(0,1)?1:0; if(snapped[snapped.length-1]&&(R.length>2||!fl)) fl+=flush(R.length-1,R.length-2)?1:0;
   // άκρα: συνέχισε ως τον πρώτο τοίχο (ή λίγο πιο πέρα αν ήδη τον περνά)
   const ext=(p,q)=>{ const L=Math.hypot(p[0]-q[0],p[1]-q[1])||1, d=[(p[0]-q[0])/L,(p[1]-q[1])/L]; const inside=S.rooms.some(r=>OL[r.id]&&!isOpen(r)&&inPolys(p,OL[r.id].polys));
     let k=0.05; if(inside){ const c=ktCast(p,d); if(c!=null&&c<30) k=c+0.02; } return [p[0]+d[0]*k,p[1]+d[1]*k]; };
