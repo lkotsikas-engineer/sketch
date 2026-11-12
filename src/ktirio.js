@@ -51,14 +51,18 @@ function ktSnapEdges(){ const E=[]; for(const r of ktRings()) for(let i=0;i<r.le
 // ---- δείκτης (ποντίκι / δάχτυλο / γραφίδα) ----
 function ktDown(x,y,e){
   if(KT.cut&&mode==='house'){ if(e&&e.pointerType==='pen') penSeen=true; if(e&&e.pointerType==='touch'&&penSeen){ drag={pan:true,sx:x,sy:y,ox:view.ox,oy:view.oy}; return true; }
-    if(KT.cut.mv){ const p=S2W(x,y), w=hitWall(p); if(w&&!w.ext&&w.nb!=null){ KW={w,p0:p,d:0}; render(); return true; } drag={pan:true,sx:x,sy:y,ox:view.ox,oy:view.oy}; return true; }
+    if(KT.cut.mv){ const p=S2W(x,y), w=hitWall(p); if(w&&!w.ext&&w.nb!=null){ const ch=ktWallChain(w), g=w.gap, o=(p[0]-w.a[0])*w.on[0]+(p[1]-w.a[1])*w.on[1], f=o<g/2?0:g;
+      // ευθείες για κούμπωμα: πλευρές χώρων παράλληλες με τον τοίχο που δεν μετακινούνται
+      const mv=new Set(ch?[...ch.set].map(c=>c.W):[]), T=[]; for(const W of WALLS){ if(mv.has(W)) continue; if(Math.abs(W.ux*w.uy-W.uy*w.ux)>0.01) continue; T.push((W.a[0]-w.a[0])*w.on[0]+(W.a[1]-w.a[1])*w.on[1]); }
+      KW={w,p0:p,d:0,f,T,lo:ch?ch.lo:null,hi:ch?ch.hi:null}; render(); return true; } drag={pan:true,sx:x,sy:y,ox:view.ox,oy:view.oy}; return true; }
     KC={id:e?e.pointerId:0,pts:[S2W(x,y)]}; snapMark=ktNearCorner(KC.pts[0],26); render(); return true; }
   if(!KO||mode!=='house') return false; const r=ktRing(KO.k); if(!r) return false; const n=r.length;
   for(let i=0;i<n;i++){ const s=W2S(r[i]); if(Math.hypot(s[0]-x,s[1]-y)<14){ KD={i,pre:snapStr(),moved:false,sx:x,sy:y}; if(KO.act!==i){ KO.act=i; renderSide(); } render(); return true; } }
   for(let i=0;i<n;i++){ const a=r[i], b=r[(i+1)%n], s=W2S([(a[0]+b[0])/2,(a[1]+b[1])/2]); if(Math.hypot(s[0]-x,s[1]-y)<12){ const pre=snapStr();
       r.splice(i+1,0,[r4((a[0]+b[0])/2),r4((a[1]+b[1])/2)]); KD={i:i+1,pre,moved:true,sx:x,sy:y}; KO.act=i+1; render(); return true; } }
   drag={pan:true,sx:x,sy:y,ox:view.ox,oy:view.oy}; return true; }
-function ktMove(x,y){ if(KW){ const p=S2W(x,y), w=KW.w; KW.d=Math.round(((p[0]-KW.p0[0])*w.on[0]+(p[1]-KW.p0[1])*w.on[1])*100)/100; render(); return true; }
+function ktMove(x,y){ if(KW){ const p=S2W(x,y), w=KW.w; let d=Math.round(((p[0]-KW.p0[0])*w.on[0]+(p[1]-KW.p0[1])*w.on[1])*100)/100; KW.snap=null;
+    let bd=Math.min(0.15,12/view.s); for(const v of KW.T){ const e=Math.abs(v-(KW.f+d)); if(e<bd&&Math.abs(v-KW.f)>0.005){ bd=e; KW.snap=v; } } if(KW.snap!=null) d=r4(KW.snap-KW.f); KW.d=d; render(); return true; }
   if(KC){ const p=S2W(x,y), q=KC.pts[KC.pts.length-1]; snapMark=ktNearCorner(p,26); if(Math.hypot(p[0]-q[0],p[1]-q[1])*view.s>=3){ KC.pts.push(p); render(); } return true; }
   if(!KD||!KO) return false; if(!KD.moved&&Math.hypot(x-KD.sx,y-KD.sy)<4) return true; KD.moved=true;
   const r=ktRing(KO.k); if(!r) return true; r[KD.i]=ktSnap(S2W(x,y),KD.i); render(); return true; }
@@ -109,9 +113,10 @@ function ktDrawDist(){ const it=byId(sel); if(!it||it.room!==cur) return; const 
     if(g.left>0.004) ktDim(off(g.e.a),off(g.p0),g.left,col); if(g.right>0.004) ktDim(off(g.p1),off(g.e.b),g.right,col);
     ctx.save(); ctx.strokeStyle=col; ctx.globalAlpha=0.5; ctx.lineWidth=1; ctx.setLineDash([3,3]); for(const p of [g.e.a,g.p0,g.p1,g.e.b]) line(p,off(p)); ctx.restore(); return; }
   for(const x of ktRays(it)) if(x.d>0.004) ktDim(x.a,x.b,x.d,col); }
-function ktDrawOver(){ if(KW){ const w=KW.w, o=w.gap/2+KW.d, A=W2S([w.a[0]+w.on[0]*o,w.a[1]+w.on[1]*o]), B=W2S([w.b[0]+w.on[0]*o,w.b[1]+w.on[1]*o]);
+function ktDrawOver(){ if(KW){ const w=KW.w, o=w.gap/2+KW.d, t0=w.a[0]*w.ux+w.a[1]*w.uy, a=KW.lo!=null?[w.a[0]+w.ux*(KW.lo-t0),w.a[1]+w.uy*(KW.lo-t0)]:w.a, b=KW.hi!=null?[w.a[0]+w.ux*(KW.hi-t0),w.a[1]+w.uy*(KW.hi-t0)]:w.b, A=W2S([a[0]+w.on[0]*o,a[1]+w.on[1]*o]), B=W2S([b[0]+w.on[0]*o,b[1]+w.on[1]*o]);
     ctx.save(); ctx.strokeStyle=colors.sub; ctx.lineWidth=Math.max(3,w.gap*view.s); ctx.globalAlpha=0.55; ctx.beginPath(); ctx.moveTo(A[0],A[1]); ctx.lineTo(B[0],B[1]); ctx.stroke(); ctx.globalAlpha=1;
-    ctx.fillStyle=colors.sub; ctx.font='600 14px system-ui'; ctx.fillText((KW.d>0?'+':'')+cm(KW.d)+' εκ.',(A[0]+B[0])/2+8,(A[1]+B[1])/2-8); ctx.restore(); }
+    const F=KW.f+KW.d, FA=W2S([a[0]+w.on[0]*F,a[1]+w.on[1]*F]), FB=W2S([b[0]+w.on[0]*F,b[1]+w.on[1]*F]); ctx.strokeStyle=KW.snap!=null?(colors.ok||'#1a7f37'):'#c2410c'; ctx.lineWidth=3; ctx.setLineDash(KW.snap!=null?[]:[8,5]); ctx.beginPath(); ctx.moveTo(FA[0],FA[1]); ctx.lineTo(FB[0],FB[1]); ctx.stroke(); ctx.setLineDash([]);
+    const rn=roomById(KW.f?w.nb:w.room); ctx.fillStyle=colors.sub; ctx.font='600 14px system-ui'; ctx.fillText((KW.d>0?'+':'')+cm(KW.d)+' εκ. · παρειά «'+(rn?rn.name:'')+'»'+(KW.snap!=null?' · στην ευθεία':''),(A[0]+B[0])/2+10,(A[1]+B[1])/2-10); ctx.restore(); }
   if(KC&&KC.pts.length>1){ ctx.save(); ctx.strokeStyle=colors.sub; ctx.lineWidth=3; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.beginPath(); KC.pts.forEach((p,i)=>{ const s=W2S(p); i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1]); }); ctx.stroke(); ctx.restore(); }
   if(mode==='house'){ ktDrawE9(); ktDrawRing('bld'); ktDrawRing('floor'); } else ktDrawDist(); }
 
@@ -148,13 +153,13 @@ function ktSide(){ if(ktCutSide()) return true; if(!KO||mode!=='house') return f
   armConfirm('kClr',()=>{ snap(); ktSetRing(k,null); KO=null; commit(); toast(k==='floor'?'Σβήστηκε. Το μικτό βγαίνει πάλι από τους χώρους.':'Σβήστηκε το περίγραμμα κτιρίου.'); });
   $('kOk').onclick=()=>{ KO=null; render(); renderSide(); };
   return true; }
-function ktHouseBox(){ const fo=FL().ol, B=bldInfo();
-  return `<div class="eyebrow" style="margin-top:14px">Περιγράμματα</div>
-  <div class="tbl"><table><tbody><tr><td>Περίγραμμα ορόφου «${esc(FL().name)}»</td><td>${fo?fmt(ktStat(fo).area)+' m²':'από τους χώρους'}</td></tr>
+function ktHouseBox(k){ const fo=FL().ol, B=bldInfo();
+  const rooms=`<div class="actions"><button class="btn primary" id="ktCut">Χώρισε με τη γραφίδα</button><button class="btn" id="ktRO">Χώρος από το περίγραμμα</button></div>`;
+  const ol=`<div class="tbl"><table><tbody><tr><td>Περίγραμμα ορόφου «${esc(FL().name)}»</td><td>${fo?fmt(ktStat(fo).area)+' m²':'από τους χώρους'}</td></tr>
   <tr><td>Περίγραμμα κτιρίου${S.bld?'':S.topo&&S.topo.bld?' (τοπογράφου)':''}</td><td>${B&&B.rings.length?fmt(B.area)+' m²':'—'}</td></tr></tbody></table></div>
-  <div class="actions"><button class="btn" id="ktEF">Άλλαξε περίγραμμα ορόφου</button><button class="btn" id="ktEB">Άλλαξε περίγραμμα κτιρίου</button></div>
-  <div class="actions"><button class="btn" id="ktRO">Χώρος από το περίγραμμα</button></div>
-  <div class="actions"><button class="btn primary" id="ktCut">Χώρισε με τη γραφίδα</button></div>${ktE9Box()}`; }
+  <div class="actions"><button class="btn" id="ktEF">Άλλαξε περίγραμμα ορόφου</button><button class="btn" id="ktEB">Άλλαξε περίγραμμα κτιρίου</button></div>`;
+  if(k==='rooms') return rooms; if(k==='ol') return ol; if(k==='e9') return ktE9Box().replace(/^<div class="eyebrow"[^>]*>[^<]*<\/div>/,'')||'<p>Δεν υπάρχουν κλειστοί χώροι ακόμα.</p>';
+  return '<div class="eyebrow" style="margin-top:14px">Περιγράμματα</div>'+ol+rooms+ktE9Box(); }
 function ktHouseBind(){ ktE9Bind(); if($('ktCut')) $('ktCut').onclick=ktCutStart; if($('ktRO')) $('ktRO').onclick=()=>ktRoomFromOutline(); if($('ktWDir')) $('ktWDir').onchange=()=>{ snap(); if($('ktWDir').value==='out') S.wallOut=true; else delete S.wallOut; commit(); }; if($('ktEF')) $('ktEF').onclick=()=>ktEdit('floor'); if($('ktEB')) $('ktEB').onclick=()=>ktEdit('bld'); }
 
 // ---- αποστάσεις στο πάνελ του αντικειμένου ----
@@ -324,13 +329,28 @@ function ktWallsIn(apply){ if(S.wallOut) return false;
 // και κόβει όσους χώρους περνά. Οι γραμμές ισιώνουν και γυρνούν στις 90° ως προς τη μεγάλη πλευρά του χώρου.
 let KC=null, KW=null;   // KW: τοίχος που μετακινείται με τη γραφίδα {w, p0, d}
 // μετακίνηση εσωτερικού τοίχου κατά d (m) προς την πλευρά του γείτονα: η πλευρά του χώρου πάει +d, η απέναντι πλευρά του γείτονα επίσης
-function ktMoveWall(w,d){ compute(); const D={};
+function ktWallChain(w){
+  // όλος ο τοίχος: πλευρές στην ίδια ευθεία με την παρειά (ίδια φορά) και στην απέναντι παρειά (αντίθετη φορά, σε απόσταση = πάχος),
+  // που ακουμπούν ή επικαλύπτονται, αλυσιδωτά — ώστε να μετακινηθούν μαζί όλοι οι χώροι και από τις δύο πλευρές
+  const n=w.on, ux=w.ux, uy=w.uy, off=q=>q[0]*n[0]+q[1]*n[1], along=q=>q[0]*ux+q[1]*uy, c0=off(w.a), g=w.gap||S.int;
+  const cand=WALLS.filter(W=>!W.ext||W.part).map(W=>{ const dot=W.on[0]*n[0]+W.on[1]*n[1]; if(Math.abs(Math.abs(dot)-1)>0.01) return null;
+      const o=off(W.a)-c0, side=dot>0?(Math.abs(o)<0.015?1:0):(Math.abs(o-g)<0.03?-1:0); if(!side) return null;
+      const t1=along(W.a), t2=along(W.b); return {W,side,lo:Math.min(t1,t2),hi:Math.max(t1,t2)}; }).filter(Boolean);
+  const self=cand.find(c=>c.W.room===w.room&&c.W.pi===w.pi&&c.W.i===w.i); if(!self) return null;
+  const set=new Set([self]); let lo=self.lo, hi=self.hi, grow=true;
+  while(grow){ grow=false; for(const c of cand){ if(set.has(c)) continue; if(c.hi<lo-0.03||c.lo>hi+0.03) continue;
+      // ίδια παρειά: πρέπει να ακουμπά (με κενό το πολύ όσο ο τοίχος που τη διασχίζει)· απέναντι: να επικαλύπτεται
+      if(c.side!==self.side&&(c.hi<lo+0.02||c.lo>hi-0.02)) continue;
+      set.add(c); lo=Math.min(lo,c.lo); hi=Math.max(hi,c.hi); grow=true; } }
+  return {set,lo,hi}; }
+function ktMoveWall(w,d){ compute(); const D={}, ch=ktWallChain(w); if(!ch) return;
   const put=(rid,pi,i,v)=>{ const o=OL[rid]; if(!o) return; if(!D[rid]) D[rid]=o.polys.map(poly=>poly[0].map(()=>0)); D[rid][pi][i]=v; };
-  put(w.room,w.pi,w.i,d);
-  for(const W of WALLS){ if(W.room!==w.nb||W.ext||W.nb!==w.room) continue; if(W.on[0]*w.on[0]+W.on[1]*w.on[1]>-0.99) continue;
-    const t=q=>(q[0]-w.a[0])*w.ux+(q[1]-w.a[1])*w.uy, t1=t(W.a), t2=t(W.b); if(Math.max(t1,t2)<0.02||Math.min(t1,t2)>w.L-0.02) continue; put(W.room,W.pi,W.i,-d); }
+  for(const c of ch.set) put(c.W.room,c.W.pi,c.W.i,c.side>0?d:-d);
   const out=[]; for(const room of S.rooms){ const dd=D[room.id]; if(!dd) continue; const o=OL[room.id]; const rings=o.polys.map((poly,pi)=>cleanRing(varOffset(poly[0],dd[pi]))).filter(r=>r.length>=3&&Math.abs(areaRing(r))>0.05); if(!rings.length) return toast('Ο χώρος θα έκλεινε. Μετακίνησε λιγότερο.'); out.push([room.id,rings]); }
-  snap(); for(const [id,rings] of out) ktRoomRings(id,rings); commit(); toast('Ο τοίχος μετακινήθηκε '+cm(Math.abs(d))+' εκ.'); }   // γραμμή που ζωγραφίζεται {id, pts}
+  const f0=HOUSE.footArea, pre=snapStr(); for(const [id,rings] of out) ktRoomRings(id,rings); compute();
+  // ο τοίχος δεν βγαίνει έξω από το κτίριο ούτε περνά πάνω από άλλον τοίχο: το μικτό πρέπει να μείνει ίδιο
+  if(Math.abs(HOUSE.footArea-f0)>0.05){ restore(pre); compute(); render(); renderSide(); return toast('Δεν χωράει εκεί: ο τοίχος θα περνούσε πάνω από άλλον τοίχο. Μετακίνησέ τον λιγότερο.'); }
+  undoS.push(pre); if(undoS.length>80) undoS.shift(); redoS=[]; updUndo(); commit(); toast('Ο τοίχος μετακινήθηκε '+cm(Math.abs(d))+' εκ.'); }   // γραμμή που ζωγραφίζεται {id, pts}
 // χώρος από το περίγραμμα (ορόφου, αλλιώς κτιρίου): εξωτερική παρειά → χώρος μέσα στον εξωτερικό τοίχο
 function ktHasRoom(){ compute(); return S.rooms.some(r=>OL[r.id]&&OL[r.id].area>0.05); }
 function ktRoomFromOutline(quiet){ const B=bldInfo(); const ring=FL().ol||(S.bld&&S.bld.ring)||(B&&B.rings.length?B.rings.reduce((a,r)=>Math.abs(areaRing(r))>Math.abs(areaRing(a))?r:a):null);
@@ -349,7 +369,7 @@ function ktCutSide(){ if(!KT.cut||mode!=='house') return false;
   h(`<div class="eyebrow">Χωρισμός με τη γραφίδα</div><h2>Τράβηξε τους εσωτερικούς τοίχους</h2>
   <p>Ζωγράφισε μια γραμμή πάνω στην κάτοψη, από τοίχο σε τοίχο. Κοντά σε γωνία η γραμμή κολλάει πάνω της (πράσινος κύκλος) και ο τοίχος μπαίνει στο ίσιο της πλευράς. Γίνεται εσωτερικός τοίχος και χωρίζει τον χώρο στα δύο. Μπορείς να κάνεις και γωνία (Γ). Αν δεν φτάσει ως τον τοίχο, συνεχίζει μόνη της ως εκεί.</p>
   <div class="seg"><button id="kcDraw" class="${KT.cut.mv?'':'on'}">Τράβα τοίχο</button><button id="kcMv" class="${KT.cut.mv?'on':''}">Μετακίνησε</button></div>
-  ${KT.cut.mv?'<p><b>Μετακίνησε:</b> πιάσε με τη γραφίδα έναν εσωτερικό τοίχο και σύρε τον. Αλλού η γραφίδα μετακινεί την κάτοψη.</p>':''}
+  ${KT.cut.mv?'<p><b>Μετακίνησε:</b> πιάσε με τη γραφίδα έναν εσωτερικό τοίχο <b>από την παρειά που θέλεις</b> (πιο κοντά στη μία ή στην άλλη πλευρά) και σύρε τον. Η παρειά αυτή φαίνεται με πορτοκαλί γραμμή και, όταν φτάσει στην ευθεία άλλου τοίχου, κουμπώνει (πράσινη). Αλλού η γραφίδα μετακινεί την κάτοψη.</p>':''}
   <div class="form"><div class="row">${field('kcT','Πάχος τοίχου (m)',fmt(KT.cut.t))}<label class="f"><span><input type="checkbox" id="kc90" ${KT.cut.o90?'checked':''}> Μόνο ορθές γωνίες</span></label></div></div>
   <p style="font-size:13px;color:var(--ink-2)">Με γραφίδα: το δάχτυλο μετακινεί την κάτοψη. Με ποντίκι: σύρε για γραμμή, με τη ροδέλα κάνεις ζουμ. Μετά άλλαξε τα ονόματα πατώντας τους χώρους.</p>
   <div class="actions"><button class="btn" id="kcUndo" ${undoS.length?'':'disabled'}>↶ Αναίρεση</button><button class="btn primary" id="kcOk">Τέλος</button></div>`);
@@ -360,7 +380,7 @@ function ktCutSide(){ if(!KT.cut||mode!=='house') return false;
   $('kcOk').onclick=()=>{ KT.cut=null; KC=null; render(); renderSide(); };
   return true; }
 function ktCorners(){ const C=[]; for(const r of S.rooms){ const o=OL[r.id]; if(o) for(const e of o.edges) C.push({p:e.a,e}); } for(const poly of HOUSE.foot) for(const q of poly[0]) C.push({p:q,e:null}); return C; }
-function ktNearCorner(p,tolPx){ const tol=(tolPx||22)/view.s; let best=null, bd=tol; for(const c of ktCorners()){ const d=Math.hypot(c.p[0]-p[0],c.p[1]-p[1]); if(d<bd){ bd=d; best=c.p; } } return best; }
+function ktNearCorner(p,tolPx){ const tol=Math.min(0.5,(tolPx||22)/view.s); let best=null, bd=tol; for(const c of ktCorners()){ const d=Math.hypot(c.p[0]-p[0],c.p[1]-p[1]); if(d<bd){ bd=d; best=c.p; } } return best; }
 // πλευρά χώρου που ξεκινά ή τελειώνει στη γωνία c και είναι στην ίδια ευθεία με τη διεύθυνση u
 function ktFaceAt(c,u){ for(const r of S.rooms){ const o=OL[r.id]; if(!o) continue; for(const e of o.edges){ const at=Math.hypot(e.a[0]-c[0],e.a[1]-c[1])<1e-3||Math.hypot(e.b[0]-c[0],e.b[1]-c[1])<1e-3; if(at&&Math.abs(e.ux*u[1]-e.uy*u[0])<0.03) return e; } } return null; }
 function ktLongAxis(polys){ let best=0, bl=0; for(const poly of polys) for(const r of poly) for(let i=0;i<r.length;i++){ const a=r[i], b=r[(i+1)%r.length], L=Math.hypot(b[0]-a[0],b[1]-a[1]); if(L>bl){ bl=L; best=Math.atan2(b[1]-a[1],b[0]-a[0]); } } return best; }

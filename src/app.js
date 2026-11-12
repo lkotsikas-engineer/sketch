@@ -936,35 +936,40 @@ function bindFloors(){
   armConfirm('fDel',()=>{ snap(); const k=flIdx(S.fl), t=S.floors[k+1]||S.floors[k-1]; S.floors.splice(k,1); S.fl=t.id; S.rooms=t.rooms&&t.rooms.length?t.rooms:[{id:newRoomId(),name:'Χώρος 1'}]; S.items=t.items||[]; delete t.rooms; delete t.items;
     cur=S.rooms[0].id; sel=null; selRoom=null; commit(); fit(); toast('Σβήστηκε ο όροφος. Αναίρεση αν έγινε κατά λάθος.'); });
 }
+let GRP=(()=>{ try{ return JSON.parse(localStorage.getItem('katGrp'))||{rooms:true}; }catch(e){ return {rooms:true}; } })();
 function housePanel(){
   const badge=id=>{ const st=roomCheck(id); return st.n? `<span class="chk" style="color:var(--${st.lvl==='ok'?'ok':st.lvl==='warn'?'warn':'sub'})" title="${st.lvl==='ok'?'Κλείνει':'Διαφορά '+cm(st.worst)+' εκ.'}">${st.lvl==='ok'?'✓':'⚠'}</span>` : ''; };
   const rows=S.rooms.map(r=>`<tr data-r="${r.id}"><td>${roomNo(r.id)}. ${esc(r.name)} ${badge(r.id)}</td><td>${USES_S[useOf(r)]}</td><td>${fmt(OL[r.id]?OL[r.id].area:0)}</td></tr>`).join('');
   const U=HOUSE.use||{}, uRow=(k,l)=>U[k]>0?`<tr><td>${l}</td><td></td><td>${fmt(U[k])}</td></tr>`:'';
   const bad=S.rooms.filter(r=>roomCheck(r.id).lvl!=='ok');
   const t=S.topo;
+  const G=(id,title,body,note)=>`<details class="grp" data-g="${id}" ${GRP[id]?'open':''}><summary>${title}${note?`<span>${note}</span>`:''}</summary><div class="grpb">${body}</div></details>`;
+  const kt=k=>typeof ktHouseBox==='function'?ktHouseBox(k):'';
   h(`<div class="more"><div class="eyebrow">Οικία</div><h2>${esc(S.name)}</h2>
-  <p>Σύρε κάθε χώρο στη θέση του, ή πάτα έναν χώρο και «Χώρισε με εσωτερικό τοίχο» για να τον κόψεις σε δύο. Κουμπώνει με κενό όσο ο εσωτερικός τοίχος από τους άλλους χώρους, και όσο ο εξωτερικός τοίχος από τη γραμμή του τοπογράφου.</p>
   ${PYCASE?pyUnplaced():''}
+  ${G('rooms','Χώροι και εμβαδά',`
   <div class="tbl"><table><thead><tr><th>Χώρος</th><th>Χρήση</th><th>Ε (m²)</th></tr></thead><tbody>${rows}</tbody>
   <tfoot>${uRow('kyr','Κύριοι χώροι (καθαρό)')}${uRow('voith','Βοηθητικοί (καθαρό)')}<tr><td>Καθαρό κλειστών χώρων</td><td></td><td>${fmt(HOUSE.net)}</td></tr><tr><td>Τοίχοι</td><td></td><td>${fmt(HOUSE.footArea-HOUSE.net)}</td></tr><tr><td>Μικτό (με τοίχους)</td><td></td><td>${fmt(HOUSE.footArea)}</td></tr>${HOUSE.footArea-HOUSE.footNI>0.005?`<tr><td>Μικτό χωρίς εξωτ. μόνωση</td><td></td><td>${fmt(HOUSE.footNI)}</td></tr>`:''}${uRow('imiy','Ημιυπαίθριοι')}${uRow('exo','Εξώστες')}</tfoot></table></div>
   ${bad.length?`<div class="note warn">Ξαναμέτρησε: ${bad.map(r=>esc(r.name)+' ('+cm(roomCheck(r.id).worst)+' εκ.)').join(', ')}</div>`:''}
-  ${floorsUI()}
-  ${typeof ktHouseBox==='function'?ktHouseBox():''}
-  <div class="eyebrow" style="margin-top:14px">Τοίχοι</div>
+  <div class="actions" style="margin-top:12px"><button class="btn" id="rNew">+ Νέος χώρος</button><button class="btn" id="rImp">Χώρος από DXF</button></div>${kt('rooms')}
+  <p style="font-size:13px;color:var(--ink-2)">Σύρε κάθε χώρο στη θέση του, ή πάτα έναν χώρο και «Χώρισε με εσωτερικό τοίχο». Κουμπώνει με κενό όσο ο τοίχος.</p>`,S.rooms.length+' χώροι · '+fmt(HOUSE.footArea)+' m²')}
+  ${G('floors','Όροφοι',floorsUI().replace(/^<div class="eyebrow"[^>]*>Όροφοι<\/div>/,''),S.floors.length>1?S.floors.length+'':'')}
+  ${typeof ktHouseBox==='function'?G('ol','Περιγράμματα',kt('ol')):''}
+  ${G('walls','Τοίχοι και κατασκευές',`
   <p>Πάτα πάνω σε έναν τοίχο για να αλλάξεις το πάχος ή την κατασκευή του. Το κουμπί «Πάχη» γράφει το πάχος πάνω σε κάθε τοίχο.</p>
   <div class="form"><label class="f">Εξωτερικοί τοίχοι του σπιτιού<select id="wExtC"><option value="">— μόνο πάχος —</option>${consOpts(S.extC,'ext')}</select></label>
   <div class="row">${S.extC&&consById(S.extC)?`<label class="f">Πάχος εξωτερικών (m)<input value="${fmt(consT(consById(S.extC)))}" disabled></label>`:field('wExt','Πάχος εξωτερικών (m)',fmt(S.ext))}${field('wInt','Εσωτερικοί, για νέους χώρους (m)',fmt(S.int))}</div>
   <div class="row">${field('wTol','Ανοχή κλεισίματος (εκ.)',cm(S.tol||0.03))}${typeof ktWallDirUI==='function'?ktWallDirUI():''}</div></div>
-  <div class="eyebrow" style="margin-top:14px">Κατασκευές τοίχων</div>
+  <div class="eyebrow" style="margin-top:10px">Κατασκευές τοίχων</div>
   <div class="tbl"><table><tbody>${(S.cons||[]).map(c=>`<tr data-c="${c.id}"><td>${esc(c.name)} <span style="color:var(--ink-2);font-size:12px">${c.kind==='int'?'εσωτ.':'εξωτ.'}</span></td><td>${cm(consT(c))} εκ.</td></tr>`).join('')}</tbody></table></div>
-  <div class="actions"><button class="btn" id="cNew">+ Νέα κατασκευή</button></div></div>
-  <div class="actions" style="margin-top:12px"><button class="btn" id="rNew">+ Νέος χώρος</button><button class="btn" id="rImp">Χώρος από DXF</button></div>
-  <div class="more"><div class="eyebrow" style="margin-top:16px">Περίγραμμα τοπογράφου</div>
+  <div class="actions"><button class="btn" id="cNew">+ Νέα κατασκευή</button></div>`,cm(S.extC&&consById(S.extC)?consT(consById(S.extC)):S.ext)+' / '+cm(S.int)+' εκ.')}
+  ${typeof ktHouseBox==='function'?G('e9','Ε9 · κύριοι και βοηθητικοί',kt('e9')):''}
+  ${G('topo','Τοπογραφικό',`
   ${t? `${bldBox()}<p>${esc(t.file)} · ${t.ents.length} γραμμές. Το DXF της οικίας βγαίνει στις συντεταγμένες του.</p><div class="layers">${Object.keys(t.layers).map(l=>`<label><input type="checkbox" data-l="${esc(l)}" ${t.layers[l]!==false?'checked':''}> ${esc(l)} <span>${t.count[l]||0}</span></label>`).join('')}</div>
      <div class="actions">${t.bld?`<button class="btn" id="tOnly">Μόνο το κτίριο</button>`:''}${t.bld&&(t.bldRings||[]).length?`<button class="btn" id="tRoom">Χώρος από το περίγραμμα</button>`:''}<button class="btn" id="tAgain">Άλλο DXF</button><button class="btn danger" id="tDel">Αφαίρεση</button></div>`
-   : `<p>Φόρτωσε το DXF του τοπογράφου για να βάλεις τους χώρους πάνω στο περίγραμμα. Αν έχει layer «lk.4495.buliding.area», το περίγραμμα του κτιρίου ξεχωρίζει μόνο του και βλέπεις το εμβαδόν του δίπλα στο μικτό της κάτοψης.</p><div class="actions"><button class="btn" id="tAgain">Φόρτωσε DXF τοπογράφου</button></div>`}
-  </div>
-  <div class="actions" style="margin-top:16px"><button class="btn danger" id="bNew">Νέα κενή κάτοψη</button>${(S.topo&&(S.topo.bldRings||[]).length)||S.bld?`<button class="btn danger" id="bNewT">Νέα κάτοψη από τον τοπογράφο</button>`:''}<button class="btn" id="bEx">Ξανά το παράδειγμα</button></div>`);
+   : `<p>Φόρτωσε το DXF του τοπογράφου για να βάλεις τους χώρους πάνω στο περίγραμμα. Αν έχει layer «lk.4495.buliding.area», το περίγραμμα του κτιρίου ξεχωρίζει μόνο του και βλέπεις το εμβαδόν του δίπλα στο μικτό της κάτοψης.</p><div class="actions"><button class="btn" id="tAgain">Φόρτωσε DXF τοπογράφου</button></div>`}`,t?esc(t.file):'')}
+  ${G('plan','Νέα κάτοψη',`<div class="actions"><button class="btn danger" id="bNew">Νέα κενή κάτοψη</button>${(S.topo&&(S.topo.bldRings||[]).length)||S.bld?`<button class="btn danger" id="bNewT">Νέα κάτοψη από τον τοπογράφο</button>`:''}<button class="btn" id="bEx">Ξανά το παράδειγμα</button></div>`)}</div>`);
+  side.querySelectorAll('details.grp').forEach(d=>d.addEventListener('toggle',()=>{ GRP[d.dataset.g]=d.open; try{ localStorage.setItem('katGrp',JSON.stringify(GRP)); }catch(e){} }));
   side.querySelectorAll('[data-place]').forEach(b=>b.onclick=()=>pyPlace(b.dataset.place));
   bindFloors(); if(typeof ktHouseBind==='function') ktHouseBind();
   side.querySelectorAll('[data-r]').forEach(tr=>tr.onclick=()=>{ selRoom=+tr.dataset.r; render(); renderSide(); });
