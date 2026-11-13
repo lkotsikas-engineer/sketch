@@ -20,7 +20,7 @@ function ktRect(){ if(S.items.some(isShape)){ const b=bbox(); return [[b[0],b[1]
   const c=S2W(cv.clientWidth/2,cv.clientHeight/2); return ktR4([[c[0]-5,c[1]-4],[c[0]+5,c[1]-4],[c[0]+5,c[1]+4],[c[0]-5,c[1]+4]]); }
 function ktFromRooms(){ compute(); const r=ktBig(HOUSE.foot); return r? ktR4(cleanRing(r)) : null; }
 function ktFromTopo(){ const T=S.topo; if(!T||!T.bld||!(T.bldRings||[]).length) return null; let r=T.bldRings[0]; for(const q of T.bldRings) if(Math.abs(areaRing(q))>Math.abs(areaRing(r))) r=q; return ktR4(r); }
-function ktDefault(k){ if(k==='floor') return ktFromRooms()||ktRect(); return ktFromTopo()||(FL().ol?ktR4(FL().ol):null)||ktFromRooms()||ktRect(); }
+function ktDefault(k){ if(k==='floor') return (S.bld&&S.bld.ring?ktR4(S.bld.ring):null)||ktFromTopo()||ktFromRooms()||ktRect(); return ktFromTopo()||(FL().ol?ktR4(FL().ol):null)||ktFromRooms()||ktRect(); }
 function ktEdit(k){ if(typeof wzActive==='function'&&wzActive()) wzFree();
   if(mode!=='house'){ mode='house'; markMode(); }
   sel=null; tool=null; markTool(); selRoom=null; selWall=null; consEdit=null; splitting=null;
@@ -141,7 +141,7 @@ function ktSide(){ if(ktCutSide()) return true; if(!KO||mode!=='house') return f
   <div class="tbl"><table><thead><tr><th>Πλευρά</th><th>Μήκος (m)</th><th>Γωνία αρχής</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
   <p style="font-size:13px;color:var(--ink-2)">Το <b>+</b> στον πίνακα βάζει γωνία στη μέση της πλευράς, το <b>✕</b> σβήνει τη γωνία αρχής της. Όταν αλλάζεις μήκος, η επόμενη πλευρά μετακινείται παράλληλα, οπότε ένα ορθογώνιο μένει ορθογώνιο.</p>
   <div class="form"><div class="row">${field('kOff','Μεγάλωσε όλο κατά (m), − για μίκρυνση','0.00')}<div class="actions" style="align-items:end"><button class="btn" id="kOffGo">Εφάρμοσε</button></div></div></div>
-  <div class="actions">${k==='floor'?'<button class="btn" id="kRe">Ξανά από τους χώρους</button>':''}${k==='bld'&&ktFromTopo()?'<button class="btn" id="kTopo">Ξανά από τον τοπογράφο</button>':''}${k==='bld'&&FL().ol?'<button class="btn" id="kFromF">Ίδιο με τον όροφο</button>':''}<button class="btn danger" id="kClr">Σβήσε το περίγραμμα</button></div>
+  <div class="actions">${k==='floor'?'<button class="btn" id="kRe">Ξανά από τους χώρους</button>':''}${k==='floor'&&((S.bld&&S.bld.ring)||ktFromTopo())?'<button class="btn" id="kFromB">Ίδιο με το κτίριο</button>':''}${k==='bld'&&ktFromTopo()?'<button class="btn" id="kTopo">Ξανά από τον τοπογράφο</button>':''}${k==='bld'&&FL().ol?'<button class="btn" id="kFromF">Ίδιο με τον όροφο</button>':''}<button class="btn danger" id="kClr">Σβήσε το περίγραμμα</button></div>
   <div class="actions" style="margin-top:12px"><button class="btn primary" id="kOk">Τέλος</button></div>`);
   const ch=fn=>{ snap(); fn(); commit(); };
   side.querySelectorAll('.kL').forEach(el=>{ el.addEventListener('focus',()=>{ el.select(); if(KO.act!==+el.dataset.i){ KO.act=+el.dataset.i; render(); } });
@@ -154,6 +154,7 @@ function ktSide(){ if(ktCutSide()) return true; if(!KO||mode!=='house') return f
   $('kOffGo').onclick=()=>{ const v=parseFloat(String($('kOff').value).replace(',','.')); if(!isFinite(v)||!v) return; const R=cleanRing(offsetRing(ktRing(k),v)); if(R.length<3||Math.abs(areaRing(R))<0.5) return toast('Πολύ μικρό περίγραμμα'); ch(()=>ktSetRing(k,ktR4(R))); };
   if($('kRe')) $('kRe').onclick=()=>{ const R=ktFromRooms(); if(!R) return toast('Δεν υπάρχουν χώροι στον όροφο'); ch(()=>ktSetRing(k,R)); };
   if($('kTopo')) $('kTopo').onclick=()=>ch(()=>ktSetRing(k,ktFromTopo()));
+  if($('kFromB')) $('kFromB').onclick=()=>ch(()=>ktSetRing(k,ktR4(S.bld&&S.bld.ring?S.bld.ring:ktFromTopo())));
   if($('kFromF')) $('kFromF').onclick=()=>ch(()=>ktSetRing(k,ktR4(FL().ol)));
   armConfirm('kClr',()=>{ snap(); ktSetRing(k,null); KO=null; commit(); toast(k==='floor'?'Σβήστηκε. Το μικτό βγαίνει πάλι από τους χώρους.':'Σβήστηκε το περίγραμμα κτιρίου.'); });
   $('kOk').onclick=()=>{ KO=null; render(); renderSide(); };

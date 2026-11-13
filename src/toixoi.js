@@ -105,23 +105,26 @@ function wmMove(w,d){ const W=wmOn(); const {ux,uy,L,n}=wmAxisOf(w); const off=q
   undoS.push(pre); if(undoS.length>80) undoS.shift(); redoS=[]; updUndo(); commit(); toast('Ο τοίχος μετακινήθηκε '+cm(Math.abs(d))+' εκ.'); }
 // γραμμή της γραφίδας → τοίχοι (ίσιωμα ως προς τον τοίχο από τον οποίο ξεκινά)
 function wmNearDir(p){ const W=wmOn(), inner=wmInner(); let best=null, bd=1e9; const test=(a,b)=>{ const q=segNear(p,a,b), d=Math.hypot(q[0]-p[0],q[1]-p[1]); if(d<bd){ bd=d; best=Math.atan2(b[1]-a[1],b[0]-a[0]); } };
-  if(inner) for(const [a,b] of wmSegsOf(inner)) test(a,b); if(W) for(const w of W.walls) test(w.a,w.b); return best==null?0:best; }
+  if(inner) for(const [a,b] of wmSegsOf(inner)) test(a,b); return best==null?0:best; }
 function wmCutFinish(raw){ const W=wmOn(), t=KT.cut.t; let P=penRdp(raw,Math.max(0.12,10/view.s)); if(P.length<2) return;
   const snapped=P.map(p=>{ const c=ktNearCorner(p,26); return c?c.slice():null; }); P=P.map((p,i)=>snapped[i]||p);
   if(!snapped[0]&&snapped[P.length-1]){ P.reverse(); snapped.reverse(); }
   if(Math.hypot(P[P.length-1][0]-P[0][0],P[P.length-1][1]-P[0][1])<0.3&&P.length<3) return toast('Πολύ μικρή γραμμή');
   const ax=wmNearDir(P[0]);
   const Q=[P[0].slice()]; for(let i=1;i<P.length;i++){ const a=Q[Q.length-1], b=P[i]; let ang=Math.atan2(b[1]-a[1],b[0]-a[0]); if(Math.hypot(b[0]-a[0],b[1]-a[1])<0.05) continue;
-    const st=KT.cut.o90?Math.PI/2:Math.PI/4, sn=ax+Math.round((ang-ax)/st)*st; if(Math.abs(penAngDiff(sn,ang))<0.35) ang=sn;
+    const st=KT.cut.o90?Math.PI/2:Math.PI/4; ang=ax+Math.round((ang-ax)/st)*st;
     const L=(b[0]-a[0])*Math.cos(ang)+(b[1]-a[1])*Math.sin(ang); Q.push([a[0]+Math.cos(ang)*L,a[1]+Math.sin(ang)*L]); }
   const R=[Q[0]]; for(let i=1;i<Q.length;i++){ if(R.length>=2){ const a=R[R.length-2], b=R[R.length-1], c=Q[i]; if(Math.abs((b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]))<1e-6){ R[R.length-1]=c; continue; } } R.push(Q[i]); }
   if(R.length<2) return;
   // άκρο σε γωνία: η παρειά του τοίχου συνεχίζει την πλευρά της γωνίας
   const flush=(i0,i1)=>{ const a=R[i0], b=R[i1], L=Math.hypot(b[0]-a[0],b[1]-a[1]); if(L<1e-4) return; const e=ktFaceAt(a,[(b[0]-a[0])/L,(b[1]-a[1])/L]); if(!e) return; const v=[e.nx*t/2,e.ny*t/2]; for(const k of [i0,i1]) R[k]=[R[k][0]+v[0],R[k][1]+v[1]]; };
   if(snapped[0]) flush(0,1); if(snapped[snapped.length-1]&&R.length>2) flush(R.length-1,R.length-2);
-  const pre=snapStr(), before=S.rooms.length; W.next=W.next||(Math.max(0,...W.walls.map(w=>w.id))+1);
+  compute(); const preTiny=S.rooms.filter(r=>OL[r.id]&&OL[r.id].area<0.8).length; const pre=snapStr(), before=S.rooms.length; W.next=W.next||(Math.max(0,...W.walls.map(w=>w.id))+1);
   for(let i=0;i+1<R.length;i++){ W.walls.push({id:W.next++,a:R[i].map(r4),b:R[i+1].map(r4),t:r4(t),fa:i>0?'j':(snapped[0]?'c':null),fb:i+2<R.length?'j':(snapped[snapped.length-1]?'c':null)}); }
   const c=wmRegen(); if(c==null){ restore(pre); compute(); render(); return toast('Δεν μπόρεσα να φτιάξω τον τοίχο'); }
+  if(c<=before){ restore(pre); compute(); render(); renderSide(); return toast('Η γραμμή δεν χωρίζει κανέναν χώρο. Τράβηξέ τη από τοίχο σε τοίχο, μέσα στον χώρο.'); }
+  const tiny=S.rooms.filter(r=>OL[r.id]&&OL[r.id].area<0.8);
+  if(tiny.length&&tiny.length>preTiny){ restore(pre); compute(); render(); renderSide(); return toast('Η γραμμή θα έφτιαχνε πολύ μικρό χώρο ('+fmt(Math.min(...tiny.map(r=>OL[r.id].area)))+' m²). Τράβηξέ τη ξανά, πιο ίσια, από τοίχο σε τοίχο.'); }
   undoS.push(pre); if(undoS.length>80) undoS.shift(); redoS=[]; updUndo(); selRoom=null; commit();
   toast(c>before? 'Μπήκε τοίχος '+cm(t)+' εκ.: '+c+' χώροι.' : 'Μπήκε τοίχος '+cm(t)+' εκ. Δεν χώρισε χώρο: τράβηξέ τον από τοίχο σε τοίχο.'); }
 // πάνελ εσωτερικού τοίχου (όταν πατάς πάνω του)
@@ -146,5 +149,8 @@ function wmWallPanel(Wl){ const w=wmWallOf(Wl); if(!w) return false; const W=wmO
   return true; }
 // ο εξωτερικός ή το περίγραμμα άλλαξε από αλλού (π.χ. «Άλλαξε περίγραμμα ορόφου»): ξαναβγάλε τους χώρους
 function wmSync(){ const W=wmOn(); if(!W||W.sig===wmSig()) return; if(wmRegen()!=null){ save(); render(); } }
-function wmOffUI(){ const W=wmOn(); if(!W) return ''; return `<div class="note">Χωριστοί τοίχοι: ο εξωτερικός μένει στο περίγραμμα, οι χώροι βγαίνουν από τους εσωτερικούς τοίχους (${W.walls.length}). <button class="kbtn" id="wmStop" style="font-size:13px">Σταμάτα τους χωριστούς τοίχους</button></div>`; }
+function wmOffUI(){ const W=wmOn(); if(!W) return ''; const B=bldInfo(), fo=FL().ol, ba=B&&B.rings.length?B.area:0, fa=fo?Math.abs(areaRing(fo)):0;
+  const warn=fo&&ba&&Math.abs(fa-ba)>Math.max(1,ba*0.05);
+  return `<div class="note">Χωριστοί τοίχοι: ο εξωτερικός μένει στο ${fo?'περίγραμμα ορόφου ('+fmt(fa)+' m²)':'περίγραμμα κτιρίου ('+fmt(ba)+' m²)'}, οι χώροι βγαίνουν από τους εσωτερικούς τοίχους (${W.walls.length}). <button class="kbtn" id="wmStop" style="font-size:13px">Σταμάτα τους χωριστούς τοίχους</button></div>
+  ${warn?`<div class="note warn">Το περίγραμμα ορόφου (${fmt(fa)} m²) δεν είναι ίδιο με το περίγραμμα κτιρίου (${fmt(ba)} m²). Αν θέλεις το κτίριο: «Νέα κάτοψη από τον τοπογράφο» (στο «Αρχείο κάτοψης») ή «Άλλαξε περίγραμμα ορόφου» › «Ίδιο με το κτίριο».</div>`:''}`; }
 function wmOffBind(){ if($('wmStop')) armConfirm('wmStop',()=>{ snap(); delete FL().wm; for(const r of S.rooms) delete r.seed; commit(); toast('Οι χώροι μένουν όπως είναι, χωρίς χωριστούς τοίχους.'); }); }
