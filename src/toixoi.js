@@ -105,7 +105,7 @@ function wmCarry(W,w,d){ const {ux,uy,L,n}=wmAxisOf(w); const off=q=>(q[0]-w.a[0
 function wmShift(w,d){ const {n}=wmAxisOf(w); w.a=[r4(w.a[0]+n[0]*d),r4(w.a[1]+n[1]*d)]; w.b=[r4(w.b[0]+n[0]*d),r4(w.b[1]+n[1]*d)]; }
 function wmMove(w,d){ const W=wmOn(); const pre=snapStr(), before=S.rooms.length;
   wmCarry(W,w,d); wmShift(w,d);
-  const c=wmRegen(); if(c==null||c<before){ restore(pre); compute(); render(); renderSide(); return toast('Δεν χωράει εκεί: θα χανόταν χώρος. Μετακίνησέ τον λιγότερο.'); }
+  const c=wmRegenL(); if(c==null||c<before){ restore(pre); compute(); render(); renderSide(); return toast('Δεν χωράει εκεί: θα χανόταν χώρος. Μετακίνησέ τον λιγότερο.'); }
   undoS.push(pre); if(undoS.length>80) undoS.shift(); redoS=[]; updUndo(); commit(); toast('Ο τοίχος μετακινήθηκε '+cm(Math.abs(d))+' εκ.'); }
 // γραμμή της γραφίδας → τοίχοι (ίσιωμα ως προς τον τοίχο από τον οποίο ξεκινά)
 function wmNearDir(p){ const W=wmOn(), inner=wmInner(); let best=null, bd=1e9; const test=(a,b)=>{ const q=segNear(p,a,b), d=Math.hypot(q[0]-p[0],q[1]-p[1]); if(d<bd){ bd=d; best=Math.atan2(b[1]-a[1],b[0]-a[0]); } };
@@ -125,7 +125,7 @@ function wmCutFinish(raw){ const W=wmOn(), t=KT.cut.t; let P=penRdp(raw,Math.max
   if(snapped[0]) flush(0,1); if(snapped[snapped.length-1]&&R.length>2) flush(R.length-1,R.length-2);
   compute(); const preTiny=S.rooms.filter(r=>OL[r.id]&&OL[r.id].area<0.8).length; const pre=snapStr(), before=S.rooms.length; W.next=W.next||(Math.max(0,...W.walls.map(w=>w.id))+1);
   for(let i=0;i+1<R.length;i++){ W.walls.push({id:W.next++,a:R[i].map(r4),b:R[i+1].map(r4),t:r4(t),fa:i>0?'j':(snapped[0]?'c':null),fb:i+2<R.length?'j':(snapped[snapped.length-1]?'c':null)}); }
-  const c=wmRegen(); if(c==null){ restore(pre); compute(); render(); return toast('Δεν μπόρεσα να φτιάξω τον τοίχο'); }
+  const c=wmRegenL(); if(c==null){ restore(pre); compute(); render(); return toast('Δεν μπόρεσα να φτιάξω τον τοίχο'); }
   if(c<=before){ restore(pre); compute(); render(); renderSide(); return toast('Η γραμμή δεν χωρίζει κανέναν χώρο. Τράβηξέ τη από τοίχο σε τοίχο, μέσα στον χώρο.'); }
   const tiny=S.rooms.filter(r=>OL[r.id]&&OL[r.id].area<0.8);
   if(tiny.length&&tiny.length>preTiny){ restore(pre); compute(); render(); renderSide(); return toast('Η γραμμή θα έφτιαχνε πολύ μικρό χώρο ('+fmt(Math.min(...tiny.map(r=>OL[r.id].area)))+' m²). Τράβηξέ τη ξανά, πιο ίσια, από τοίχο σε τοίχο.'); }
@@ -146,9 +146,9 @@ function wmWallPanel(Wl){ if(!wmOn()&&!wmEnsure()) return false; const w=wmWallO
     // μένει η παρειά: ο άξονας πάει μισή διαφορά προς την άλλη πλευρά
     let sh=0; if(k==='r') sh=(s>0?1:-1)*dt/2; else if(k==='n') sh=(s>0?-1:1)*dt/2;
     const pre=snapStr(); w.t=r4(v); if(sh){ w.a=[r4(w.a[0]+n[0]*sh),r4(w.a[1]+n[1]*sh)]; w.b=[r4(w.b[0]+n[0]*sh),r4(w.b[1]+n[1]*sh)]; }
-    if(wmRegen()==null){ restore(pre); compute(); return toast('Δεν γίνεται'); } undoS.push(pre); redoS=[]; updUndo(); selWall=null; commit(); toast('Ο τοίχος έγινε '+cm(v)+' εκ.'); };
+    if(wmRegenL()==null){ restore(pre); compute(); return toast('Δεν γίνεται'); } undoS.push(pre); redoS=[]; updUndo(); selWall=null; commit(); toast('Ο τοίχος έγινε '+cm(v)+' εκ.'); };
   $('wmTGo').onclick=go; enterChain(['wmT'],go);
-  armConfirm('wmDel',()=>{ const pre=snapStr(); W.walls=W.walls.filter(x=>x!==w); if(wmRegen()==null){ restore(pre); compute(); return; } undoS.push(pre); redoS=[]; updUndo(); selWall=null; commit(); toast('Ο τοίχος σβήστηκε· οι δύο χώροι έγιναν ένας.'); });
+  armConfirm('wmDel',()=>{ const pre=snapStr(); W.walls=W.walls.filter(x=>x!==w); if(wmRegenL()==null){ restore(pre); compute(); return; } undoS.push(pre); redoS=[]; updUndo(); selWall=null; commit(); toast('Ο τοίχος σβήστηκε· οι δύο χώροι έγιναν ένας.'); });
   $('wmOk').onclick=()=>{ selWall=null; render(); renderSide(); };
   return true; }
 // ο εξωτερικός ή το περίγραμμα άλλαξε από αλλού (π.χ. «Άλλαξε περίγραμμα ορόφου»): ξαναβγάλε τους χώρους
@@ -164,7 +164,7 @@ function wmIntUI(){ return `<div class="actions"><button class="btn" id="wmIntAl
 function wmIntAll(){ const v=num($('wInt')?$('wInt').value:S.int); if(!(v>0.02&&v<1.5)) return toast('Γράψε πάχος σε μέτρα, π.χ. 0.20');
   if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
   if(!wmOn()&&!wmEnsure()) return toast('Χρειάζεται περίγραμμα ή χώροι'); const W=wmOn(), pre=snapStr(), before=S.rooms.length;
-  S.int=r4(v); for(const w of W.walls) w.t=r4(v); const c=wmRegen(); if(c==null||c<before){ restore(pre); compute(); render(); renderSide(); return toast('Δεν χωράει: κάποιος χώρος θα χανόταν.'); }
+  S.int=r4(v); for(const w of W.walls) w.t=r4(v); const c=wmRegenL(); if(c==null||c<before){ restore(pre); compute(); render(); renderSide(); return toast('Δεν χωράει: κάποιος χώρος θα χανόταν.'); }
   undoS.push(pre); redoS=[]; updUndo(); commit(); toast('Όλοι οι εσωτερικοί τοίχοι: '+cm(v)+' εκ. Ο εξωτερικός έμεινε ίδιος.'); }
 function wmHierUI(){ return `<div class="note"><b>Σειρά:</b> 1) εξωτερικός τοίχος, πάνω στο περίγραμμα, δεν αλλάζει από τα άλλα · 2) εσωτερικοί τοίχοι · 3) χώροι, βγαίνουν μόνοι τους ανάμεσα στους τοίχους.</div>`; }
 
@@ -185,7 +185,7 @@ function wmMeasure(id,i,v){ const Sd=wmSides(id), n=Sd.length, s=Sd[i]; if(!s) r
     rec={p:s.m.map(r4),u:s.u.map(x=>r4(x)),m:r4(v),d:today,h:prev?(prev.h||[]).concat(Math.abs(prev.m-v)>1e-4?[{m:prev.m,d:prev.d||''}]:[]):[]};
   const pre=snapStr(), finish=(ok,how)=>{ const r=roomById(id); r.ms=msOld.concat([rec]); if(ok) { undoS.push(pre); if(undoS.length>80) undoS.shift(); redoS=[]; updUndo(); } commit(); return {ok,how,diff:v-wmSides(id)[i].L}; };
   const delta=v-s.L; if(Math.abs(delta)<0.003){ snap(); return finish(true,'same'); }
-  const before=S.rooms.length, locked=S.rooms.filter(r=>r.id!==id&&r.wz).map(r=>[r.id,OL[r.id]?OL[r.id].area:0]);
+  const before=S.rooms.length, locked=S.rooms.filter(r=>r.id!==id&&wmLocked(r)).map(r=>[r.id,OL[r.id]?OL[r.id].area:0]);
   const cands=[]; let ext=0, lockHit=0;
   for(const j of [(i+1)%n,(i-1+n)%n]){ const e=Sd[j], o=wmOutN(id,e), w=wmHit([e.m[0]+o[0]*0.02,e.m[1]+o[1]*0.02]); if(!w){ ext++; continue; }
     const sin=Math.abs(s.u[0]*e.u[1]-s.u[1]*e.u[0]); if(sin<0.2) continue; cands.push({id:w.id,o,d:delta*sin,face:false},{id:w.id,o,d:delta*sin,face:true}); }
@@ -195,7 +195,7 @@ function wmMeasure(id,i,v){ const Sd=wmSides(id), n=Sd.length, s=Sd[i]; if(!s) r
   for(const c of cands) for(const sg of [1,-1]){ restore(pre); compute(); const W=wmOn(), w=W.walls.find(x=>x.id===c.id); if(!w) continue; const {n:wn}=wmAxisOf(w), dir=(c.o[0]*wn[0]+c.o[1]*wn[1])>0?1:-1, d=c.d*sg;
     if(c.face){ const t=r4(w.t-d), t0=w.t0!=null?w.t0:w.t; if(Math.abs(t-t0)>WM_DT+1e-6||t<WM_TMIN||t>WM_TMAX) continue; if(w.t0==null) w.t0=w.t; wmCarry(W,w,dir*d/2); wmShift(w,dir*d/2); w.t=t; }
     else { wmCarry(W,w,dir*d); wmShift(w,dir*d); }
-    if(wmRegen()==null) continue; if(good()) return finish(true,c.face?'face':'wall'); }
+    WM_FREE=id; const rg=wmRegenL(); WM_FREE=null; if(rg==null) continue; if(good()) return finish(true,c.face?'face':'wall'); }
   restore(pre); compute(); return finish(false, ext>=2?'ext':lockHit?'locked':'none'); }
 function wmMeasMsg(r,lbl){ const d=cm(Math.abs(r.diff||0));
   if(r.ok) return r.how==='face'?lbl+': ο διπλανός χώρος είναι έτοιμος, άλλαξε το πάχος του τοίχου.':r.how==='same'?lbl+': ίδιο με το σχέδιο.':lbl+': μετακινήθηκε ο εσωτερικός τοίχος.';
@@ -211,12 +211,25 @@ function wmRecAll(){ const rows=S.rooms.filter(r=>(r.ms||[]).length); if(!rows.l
   const bad=rows.map(r=>({r,n:wmRec(r.id).filter(x=>x.lvl!=='ok').length})).filter(x=>x.n);
   return `<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:600">Αρχείο αποτύπωσης (${rows.length} ${rows.length===1?'χώρος':'χώροι'}${bad.length?', ⚠ '+bad.length+' με διαφορές':''})</summary>
   <p style="font-size:13px;color:var(--ink-2)">Οι μετρήσεις μένουν όπως τις πήρες. Όπου διαφέρουν από το σχέδιο, η πλευρά σημειώνεται με πορτοκαλί στην κάτοψη.</p>
-  ${rows.map(r=>`<h3 style="font-size:14px;margin:10px 0 4px">${esc(r.name)}</h3>${wmRecUI(r.id)}`).join('')}</details>`; }
-function wmDrawErr(){ const ids=mode==='house'?S.rooms.map(r=>r.id):[cur]; ctx.save();
+  ${rows.map(r=>`<h3 style="font-size:14px;margin:10px 0 4px">${wmLocked(r)?'🔒 ':''}${esc(r.name)}</h3>${wmRecUI(r.id)}`).join('')}</details>`; }
+function wmDrawErr(){ wmDrawLocks(); const ids=mode==='house'?S.rooms.map(r=>r.id):[cur]; ctx.save();
   for(const id of ids){ for(const r of wmRec(id)){ if(!r.s||r.lvl==='ok') continue; const s=r.s, o=wmOutN(id,s), k=-6/view.s;
       const A=W2S([s.a[0]+o[0]*k,s.a[1]+o[1]*k]), B=W2S([s.b[0]+o[0]*k,s.b[1]+o[1]*k]);
       ctx.strokeStyle=r.lvl==='bad'?'#b91c1c':'#c2410c'; ctx.lineWidth=4; ctx.setLineDash([10,6]); ctx.beginPath(); ctx.moveTo(A[0],A[1]); ctx.lineTo(B[0],B[1]); ctx.stroke(); ctx.setLineDash([]);
       const k2=-22/view.s, M=W2S([s.m[0]+o[0]*k2,s.m[1]+o[1]*k2]);
       text('⚠ μετρ. '+fmt(r.ms.m)+' · σχ. '+fmt(r.calc)+' ('+(r.diff>0?'+':'')+cm(r.diff)+')',M,12,r.lvl==='bad'?'#b91c1c':'#c2410c',Math.atan2(s.u[1],s.u[0]),'700',true); } }
   ctx.restore(); }
-window.__wm={wmRec:id=>wmRec(id),wmMeasure:(...a)=>wmMeasure(...a),wmSides:id=>wmSides(id),wmMeasMap:id=>wmMeasMap(id),wmChecks:id=>wmChecks(id),wmEnsure:()=>wmEnsure(),OL:id=>OL[id],walls:()=>wmOn()&&wmOn().walls,wzGo:(s,id)=>{ if(id!=null){ cur=id; WZ.room=id; } WZ.on=true; WZ.free=false; wzGo(s); }};
+// ---------- κλείδωμα χώρου: κανένας τοίχος/γραμμή/πάχος δεν τον αλλάζει (μόνο ο εξωτερικός, που είναι πάνω στην ιεραρχία) ----------
+let WM_FREE=null;
+function wmLocked(r){ return r.lock!=null? !!r.lock : !!r.wz; }
+function wmRegenL(){ compute(); const L=S.rooms.filter(r=>wmLocked(r)&&r.id!==WM_FREE).map(r=>({r,id:r.id,name:r.name,a:OL[r.id]?OL[r.id].area:0,p:OL[r.id]?OL[r.id].per:0}));
+  const c=wmRegen(); if(c==null) return null;
+  const hit=L.find(x=>!OL[x.id]||Math.abs(OL[x.id].area-x.a)>0.003||Math.abs(OL[x.id].per-x.p)>0.004);
+  if(hit){ setTimeout(()=>toast('🔒 Ο χώρος «'+hit.name+'» είναι κλειδωμένος και θα άλλαζε. Ξεκλείδωσέ τον πρώτα.'),30); return null; } return c; }
+function wmLockUI(room){ if(!room) return ''; const on=wmLocked(room);
+  return `<div class="actions"><button class="btn${on?' primary':''}" data-lock="${room.id}">${on?'🔒 Κλειδωμένος · Ξεκλείδωσε':'🔓 Κλείδωσε τον χώρο'}</button></div>
+  ${on?'<div class="note">Κλειδωμένος: καμία κίνηση ή αλλαγή πάχους εσωτερικού τοίχου δεν τον αλλάζει. Αλλάζει μόνο αν αλλάξεις τον εξωτερικό τοίχο.</div>':''}`; }
+document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('[data-lock]'); if(!b) return; const r=roomById(+b.dataset.lock)||roomById(b.dataset.lock); if(!r) return;
+  snap(); r.lock=!wmLocked(r); commit(); toast(r.lock?'🔒 Ο χώρος «'+r.name+'» κλειδώθηκε.':'🔓 Ο χώρος «'+r.name+'» ξεκλειδώθηκε.'); });
+function wmDrawLocks(){ if(mode!=='house') return; ctx.save(); for(const r of S.rooms){ if(!wmLocked(r)||!OL[r.id]||!OL[r.id].polys.length) continue; const C=roomCorners(r.id); if(!C.length) continue; const P=W2S(C[0]); text('🔒',[P[0]+14,P[1]+14],13,colors.ink||'#222',0,'500'); } ctx.restore(); }
+window.__wm={wmLocked:r=>wmLocked(r),move:(id,d)=>{ const w=wmOn().walls.find(x=>x.id===id); wmMove(w,d); },wmRec:id=>wmRec(id),wmMeasure:(...a)=>wmMeasure(...a),wmSides:id=>wmSides(id),wmMeasMap:id=>wmMeasMap(id),wmChecks:id=>wmChecks(id),wmEnsure:()=>wmEnsure(),OL:id=>OL[id],walls:()=>wmOn()&&wmOn().walls,wzGo:(s,id)=>{ if(id!=null){ cur=id; WZ.room=id; } WZ.on=true; WZ.free=false; wzGo(s); }};

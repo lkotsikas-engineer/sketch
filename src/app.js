@@ -1001,6 +1001,7 @@ function roomPanel(room){
   h(`<div class="eyebrow">Χώρος στην οικία</div>
   <div class="form" style="margin-top:6px">${nameUI(room)}${typeof ktGrpUI==='function'?ktGrpUI(room):''}</div>
   <dl class="sum"><dt>Εμβαδόν</dt><dd>${fmt(o.area)} m²</dd><dt>Περίμετρος</dt><dd>${fmt(o.per)} m</dd></dl>
+  ${typeof wmLockUI==='function'?wmLockUI(room):''}
   <div class="form"><div class="row">${field('rRot','Στρίψε κατά (°)','90')}<label class="f">Γύρω από<select id="rPiv"><option value="">το κέντρο</option>${roomCorners(room.id).map((q,i)=>`<option value="${i}" ${i===pivIdx(room.id)?'selected':''}>τη γωνία ${corner(i)}</option>`).join('')}</select></label></div>
   <div class="actions"><button class="btn" id="rRotGo">Στρίψε</button><span style="align-self:center;font-size:12px;color:var(--ink-2)">+ δεξιόστροφα, − αριστερόστροφα</span></div>
   <div class="actions"><button class="btn primary" id="rAlign">Ευθυγράμμισε με τους διπλανούς</button></div>

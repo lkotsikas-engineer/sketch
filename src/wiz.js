@@ -217,7 +217,7 @@ const WZ_STEPS = {
       return `${it?penInfo(it):''}${checkNotes(chk)}${!it&&!chk.length?'<div class="note ok">✓ Το σχήμα είναι κλειστό.</div>':''}
       ${wmR&&typeof wmRecUI==='function'&&wmRecUI(cur)?'<p class="wz-lead" style="margin-top:8px">Αποτύπωση χώρου</p>'+wmRecUI(cur):''}
       <dl class="sum">${it?'':`<dt>Εμβαδόν</dt><dd>${fmt(o.area)} m²</dd>`}<dt>Περίμετρος</dt><dd>${fmt(o.per)} m</dd></dl>
-      <div class="actions">${it||wmR?'<button class="btn" id="wzRe">Ξαναμέτρα πλευρά</button>':''}<button class="btn" id="wzDiag">+ Διαγώνιος ελέγχου</button></div>`; },
+      ${typeof wmLockUI==='function'?wmLockUI(roomById(cur)):''}<div class="actions">${it||wmR?'<button class="btn" id="wzRe">Ξαναμέτρα πλευρά</button>':''}<button class="btn" id="wzDiag">+ Διαγώνιος ελέγχου</button></div>`; },
     bind:()=>{ if($('wzRe')) $('wzRe').onclick=()=>wzGo(typeof wmRoomOk==='function'&&wmRoomOk(cur)?'wsides':'sides');
       $('wzDiag').onclick=()=>{ const s=wzShapes(cur)[0]; wzFree('Η διαγώνιος μπαίνει από τις ιδιότητες του σχήματος. Μετά πάτα «Οδηγός →».'); if(s){ sel=s.id; render(); renderSide(); } }; },
     next:()=>({to:'open'}) },
