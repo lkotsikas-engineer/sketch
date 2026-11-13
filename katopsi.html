@@ -2706,9 +2706,28 @@ function wmHit(p){ const W=wmOn(), inner=wmInner(); if(!W||!inner) return null; 
 function wmAxisOf(w){ const [ux,uy,L]=wmU(w); return {ux,uy,L,n:[-uy,ux]}; }
 // μετακίνηση τοίχου κατά d κάθετα (θετικό = προς το n του τοίχου) — μαζί και ό,τι ακουμπά πάνω του
 function wmCarry(W,w,d){ const {ux,uy,L,n}=wmAxisOf(w); const off=q=>(q[0]-w.a[0])*n[0]+(q[1]-w.a[1])*n[1], al=q=>(q[0]-w.a[0])*ux+(q[1]-w.a[1])*uy;
-  for(const o of W.walls){ if(o===w) continue; for(const k of ['a','b']){ const p=o[k], f=o['f'+k];
+  for(const o of W.walls){ if(o===w) continue; const ou=wmU(o); if(Math.abs(ux*ou[1]-uy*ou[0])<0.02) continue; for(const k of ['a','b']){ const p=o[k], f=o['f'+k];
       if(Math.abs(off(p))<=w.t/2+0.02&&al(p)>-w.t-0.05&&al(p)<L+w.t+0.05&&(f==='j'||!f)){ o[k]=[r4(p[0]+n[0]*d),r4(p[1]+n[1]*d)]; } } } }
 function wmShift(w,d){ const {n}=wmAxisOf(w); w.a=[r4(w.a[0]+n[0]*d),r4(w.a[1]+n[1]*d)]; w.b=[r4(w.b[0]+n[0]*d),r4(w.b[1]+n[1]*d)]; }
+// μικρή γραμμή της γραφίδας ΚΑΘΕΤΑ πάνω σε έναν εσωτερικό τοίχο: τον κόβει σε δύο κομμάτια στο σημείο αυτό
+function wmSplitTry(raw){ const W=wmOn(); if(!W||raw.length<2) return false; const A=raw[0], B=raw[raw.length-1], ch=Math.hypot(B[0]-A[0],B[1]-A[1]);
+  let hit=null;
+  for(const w of W.walls){ const {ux,uy,L,n}=wmAxisOf(w); if(ch>Math.max(1.0,w.t+0.8)) continue;
+    const oA=(A[0]-w.a[0])*n[0]+(A[1]-w.a[1])*n[1], oB=(B[0]-w.a[0])*n[0]+(B[1]-w.a[1])*n[1]; if(!(oA*oB<0)||Math.min(Math.abs(oA),Math.abs(oB))<w.t*0.3) continue;
+    const k=oA/(oA-oB), X=[A[0]+(B[0]-A[0])*k,A[1]+(B[1]-A[1])*k], al=(X[0]-w.a[0])*ux+(X[1]-w.a[1])*uy;
+    const cr=Math.abs(((B[0]-A[0])*ux+(B[1]-A[1])*uy)/(ch||1)); if(cr>0.6) continue;   // όχι κατά μήκος του τοίχου
+    if(!wmHit(X)||wmHit(X).id!==w.id) continue; if(!hit||Math.abs(oA)+Math.abs(oB)<hit.sc) hit={w,al,L,sc:Math.abs(oA)+Math.abs(oB),ux,uy}; }
+  if(!hit) return false; const {w,ux,uy}=hit; const {eff}=wmEff(W,wmInner()), e=eff.get(w.id)||{a:w.a,b:w.b};
+  const lo=(e.a[0]-w.a[0])*ux+(e.a[1]-w.a[1])*uy, hi=(e.b[0]-w.a[0])*ux+(e.b[1]-w.a[1])*uy;
+  if(hit.al<Math.min(lo,hi)+0.15||hit.al>Math.max(lo,hi)-0.15){ toast('Κόψε τον τοίχο πιο μέσα, όχι στην άκρη του.'); return true; }
+  const pre=snapStr(); W.next=W.next||(Math.max(0,...W.walls.map(x=>x.id))+1);
+  // τα άκρα του τοίχου γίνονται τα πραγματικά (μέχρι τα εμπόδια), για να μη «μακρύνει» κάποιο κομμάτι
+  const P=[r4(w.a[0]+ux*hit.al),r4(w.a[1]+uy*hit.al)];
+  const w2={id:W.next++,a:P.slice(),b:(w.fb==null?e.b:w.b).map(r4),t:w.t,fa:'c',fb:w.fb}; if(w.t0!=null) w2.t0=w.t0;
+  if(w.fa==null) w.a=e.a.map(r4); w.b=P.slice(); w.fb='c'; W.walls.push(w2);
+  const c=wmRegenL(); if(c==null){ restore(pre); compute(); render(); toast('Δεν μπόρεσα να κόψω τον τοίχο'); return true; }
+  undoS.push(pre); if(undoS.length>80) undoS.shift(); redoS=[]; updUndo(); commit();
+  toast('Ο τοίχος κόπηκε σε δύο κομμάτια ('+fmt(Math.abs(hit.al-lo))+' + '+fmt(Math.abs(hi-hit.al))+' m). Πάτα το καθένα για δικό του πάχος.'); return true; }
 function wmMove(w,d){ const W=wmOn(); const pre=snapStr(), before=S.rooms.length;
   wmCarry(W,w,d); wmShift(w,d);
   const c=wmRegenL(); if(c==null||c<before){ restore(pre); compute(); render(); renderSide(); return toast('Δεν χωράει εκεί: θα χανόταν χώρος. Μετακίνησέ τον λιγότερο.'); }
@@ -2717,6 +2736,7 @@ function wmMove(w,d){ const W=wmOn(); const pre=snapStr(), before=S.rooms.length
 function wmNearDir(p){ const W=wmOn(), inner=wmInner(); let best=null, bd=1e9; const test=(a,b)=>{ const q=segNear(p,a,b), d=Math.hypot(q[0]-p[0],q[1]-p[1]); if(d<bd){ bd=d; best=Math.atan2(b[1]-a[1],b[0]-a[0]); } };
   if(inner) for(const [a,b] of wmSegsOf(inner)) test(a,b); return best==null?0:best; }
 function wmCutFinish(raw){ const W=wmOn(), t=KT.cut.t; let P=penRdp(raw,Math.max(0.12,10/view.s)); if(P.length<2) return;
+  if(wmSplitTry(raw)) return;
   const snapped=P.map(p=>{ const c=ktNearCorner(p,26); return c?c.slice():null; }); P=P.map((p,i)=>snapped[i]||p);
   if(!snapped[0]&&snapped[P.length-1]){ P.reverse(); snapped.reverse(); }
   if(Math.hypot(P[P.length-1][0]-P[0][0],P[P.length-1][1]-P[0][1])<0.3&&P.length<3) return toast('Πολύ μικρή γραμμή');
@@ -2846,7 +2866,7 @@ function wmDXF(PLINE,TEXT){ const dd=d=>d?d.split('-').reverse().join('/'):'';
       PLINE('APOTYPOSI-INFO',[A,B],false); const k2=-0.25, M=[s.m[0]+n[0]*k2,s.m[1]+n[1]*k2];
       const t=r.lbl+' μετρ. '+fmt(r.ms.m)+' / σχ. '+fmt(r.calc)+(r.lvl==='ok'?' ΟΚ':' ΔΙΑΦΟΡΑ '+(r.diff>0?'+':'')+cm(r.diff)+' εκ.')+((r.ms.h||[]).length?' (πριν '+r.ms.h.map(x=>fmt(x.m)).join(', ')+')':'');
       TEXT('APOTYPOSI-INFO',M,0.08,t,Math.atan2(s.u[1],s.u[0])); } } }
-window.__wm={wmLocked:r=>wmLocked(r),move:(id,d)=>{ const w=wmOn().walls.find(x=>x.id===id); wmMove(w,d); },wmRec:id=>wmRec(id),wmMeasure:(...a)=>wmMeasure(...a),wmSides:id=>wmSides(id),wmMeasMap:id=>wmMeasMap(id),wmChecks:id=>wmChecks(id),wmEnsure:()=>wmEnsure(),OL:id=>OL[id],walls:()=>wmOn()&&wmOn().walls,wzGo:(s,id)=>{ if(id!=null){ cur=id; WZ.room=id; } WZ.on=true; WZ.free=false; wzGo(s); }};
+window.__wm={split:raw=>wmSplitTry(raw),setT:(id,t)=>{ const w=wmOn().walls.find(x=>x.id===id); w.t=t; const c=wmRegenL(); commit(); return c; },wmLocked:r=>wmLocked(r),move:(id,d)=>{ const w=wmOn().walls.find(x=>x.id===id); wmMove(w,d); },wmRec:id=>wmRec(id),wmMeasure:(...a)=>wmMeasure(...a),wmSides:id=>wmSides(id),wmMeasMap:id=>wmMeasMap(id),wmChecks:id=>wmChecks(id),wmEnsure:()=>wmEnsure(),OL:id=>OL[id],walls:()=>wmOn()&&wmOn().walls,wzGo:(s,id)=>{ if(id!=null){ cur=id; WZ.room=id; } WZ.on=true; WZ.free=false; wzGo(s); }};
 
 // ---------- Αρχείο κάτοψης (Google Drive, tablet, υπολογιστής) — μόνο στο αντίγραφο δοκιμής ----------
 // «Σώσε την κάτοψη»: ένα αρχείο <όνομα>.katopsi.json με όλη την κάτοψη (και το τοπογραφικό).
