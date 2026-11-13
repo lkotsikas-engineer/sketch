@@ -52,7 +52,7 @@ function wzRender(){ const st=WZ_STEPS[WZ.step]||WZ_STEPS.start; if(!WZ_STEPS[WZ
   side.scrollTop=0; }
 
 function wzRoomTo(id){ cur=id; WZ.room=id; sel=null; selRoom=null; }
-function wzAfterName(){ const s=wzRoomState(cur); if(s==='empty') return 'shape'; if(s==='sketch') return 'sides'; return 'check'; }
+function wzAfterName(){ if(typeof wmRoomOk==='function'&&wmRoomOk(cur)) return 'wsides'; const s=wzRoomState(cur); if(s==='empty') return 'shape'; if(s==='sketch') return 'sides'; return 'check'; }
 function wzNextRoom(){ const r=S.rooms.find(x=>x.id!==cur&&wzRoomState(x.id)!=='done'); return r||null; }
 function wzNewRoom(){ snap(); const empty=S.rooms.find(r=>!roomItems(r.id).length&&!r.wz);
   const id= empty? empty.id : newRoomId(); if(!empty) S.rooms.push({id,name:'Χώρος '+id}); wzRoomTo(id); commit(); return id; }
@@ -149,7 +149,7 @@ const WZ_STEPS = {
       ${PYCASE?`<button class="wz-opt" id="wzLaser"><b>Μέτρηση με στάσεις (Pythagoras)</b><span>1 ή 2 στάσεις. Το σχήμα γυρίζει μόνο του εδώ.</span></button>`:''}
       <button class="wz-opt" id="wzPoly"><b>Από πλευρές ή τρίγωνο</b><span>Στην ελεύθερη σχεδίαση, με γωνίες ή διαγώνιους.</span></button></div>
       ${wzShapes(cur).length?'<div class="note ok">Ο χώρος έχει ήδη σχήμα. Πάτα «Επόμενο» για τον έλεγχο ή διάλεξε άλλο σχήμα.</div>':''}`,
-    next:()=> wzShapes(cur).length? {to: wzAfterName()==='sides'?'sides':'check'} : null,
+    next:()=> wzShapes(cur).length? {to: ['sides','wsides'].includes(wzAfterName())?wzAfterName():'check'} : null,
     bind:()=>{ $('wzRect').onclick=()=>wzGo('rect'); $('wzPen').onclick=()=>wzGo('rpen');
       if($('wzLaser')) $('wzLaser').onclick=()=>pyMeasure(roomById(cur));
       $('wzPoly').onclick=()=>{ wzFree('Φτιάξε το σχήμα με «Από πλευρές» ή «Τρίγωνο» και πάτα «Οδηγός →».'); tool='poly'; markTool(); toolPanel('poly'); }; } },
@@ -192,14 +192,32 @@ const WZ_STEPS = {
       $('wzSkip').onclick=()=>{ if(it.src.sides[WZ.side||0].m!=null) wzSideSet(it,WZ.side||0,null); adv(); };
       setTimeout(()=>{ el.focus(); el.select(); },30); },
     next:()=>({to:'check', label:'Τέλος μετρήσεων →'}) },
+  wsides:{ phase:'B', n:'9α', room:true, mode:'room',
+    enter:()=>{ penEdit=null; sel=null; requestAnimationFrame(()=>fit(cur)); },
+    title:()=>'Μέτρηση πλευρών',
+    body:()=>{ if(!wmRoomOk(cur)) return '<p>Ο χώρος δεν βγαίνει από τοίχους.</p>'; const Sd=wmSides(cur), n=Sd.length; if(!n) return '<p>Ο χώρος δεν έχει σχήμα.</p>';
+      const i=Math.min(WZ.side||0,n-1), M=wmMeasMap(cur);
+      return `<div class="wz-side"><span class="wz-q">Μέτρησε την πλευρά</span><span class="wz-letter">${corner(i)}${corner((i+1)%n)}</span><span class="wz-of">${i+1} από ${n}</span></div>
+      <label class="f wz-in">Μήκος (m)<input id="wzM" inputmode="decimal" autocomplete="off" value="${M[i]!=null?fmt(M[i]):''}" placeholder="${fmt(Sd[i].L)}"></label>
+      <div class="wz-chips">${Sd.map((q,k)=>`<button class="wz-chip ${M[k]!=null?'k-m':'k-s'} ${k===i?'on':''}" data-ws="${k}">${corner(k)}${corner((k+1)%n)}<small>${M[k]!=null?fmt(M[k]):'≈'+fmt(q.L)}</small></button>`).join('')}</div>
+      <div class="note">Η μέτρηση μετακινεί τον εσωτερικό τοίχο στην άκρη της πλευράς. Ο εξωτερικός τοίχος και οι έτοιμοι χώροι δεν αλλάζουν. Αν δεν γίνεται, η διαφορά φαίνεται στον έλεγχο.</div>
+      <div class="actions"><button class="btn" id="wzSkip">Δεν μετριέται, επόμενη</button></div>`; },
+    bind:()=>{ if(!wmRoomOk(cur)) return; const n=wmSides(cur).length, el=$('wzM'); if(!el) return; const idx=Math.min(WZ.side||0,n-1); let done=false;
+      const adv=()=>{ if(idx<n-1){ WZ.side=idx+1; wzSave(); renderSide(); } else wzGo('check'); };
+      const put=x=>{ const r=wmMeasure(cur,idx,x); toast(wmMeasMsg(r,'Πλευρά '+corner(idx)+corner((idx+1)%n))); render(); };
+      el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); const v=String(el.value).trim(); if(v===''){ done=true; adv(); return; } const x=num(v); if(!(x>0)) return toast('Γράψε μήκος σε μέτρα'); done=true; put(x); adv(); } });
+      el.addEventListener('change',()=>{ if(done||!el.isConnected) return; const v=String(el.value).trim(); const x=num(v); if(v===''||!(x>0)) return; done=true; put(x); renderSide(); });
+      side.querySelectorAll('[data-ws]').forEach(b=>b.onclick=()=>{ WZ.side=+b.dataset.ws; wzSave(); renderSide(); });
+      $('wzSkip').onclick=adv; setTimeout(()=>{ el.focus(); el.select(); },30); },
+    next:()=>({to:'check', label:'Τέλος μετρήσεων →'}) },
   check:{ phase:'B', n:'10', room:true, mode:'room',
     enter:()=>{ penEdit=null; sel=null; requestAnimationFrame(()=>fit(cur)); },
     title:()=>'Έλεγχος κλεισίματος',
-    body:()=>{ const it=wzPen(cur), o=OL[cur]||{area:0,per:0}, chk=wzShapes(cur).flatMap(shapeChecks);
+    body:()=>{ const it=wzPen(cur), o=OL[cur]||{area:0,per:0}, chk=wzShapes(cur).flatMap(shapeChecks).concat(typeof wmChecks==='function'?wmChecks(cur):[]), wmR=typeof wmRoomOk==='function'&&wmRoomOk(cur);
       return `${it?penInfo(it):''}${checkNotes(chk)}${!it&&!chk.length?'<div class="note ok">✓ Το σχήμα είναι κλειστό.</div>':''}
       <dl class="sum">${it?'':`<dt>Εμβαδόν</dt><dd>${fmt(o.area)} m²</dd>`}<dt>Περίμετρος</dt><dd>${fmt(o.per)} m</dd></dl>
-      <div class="actions">${it?'<button class="btn" id="wzRe">Ξαναμέτρα πλευρά</button>':''}<button class="btn" id="wzDiag">+ Διαγώνιος ελέγχου</button></div>`; },
-    bind:()=>{ if($('wzRe')) $('wzRe').onclick=()=>wzGo('sides');
+      <div class="actions">${it||wmR?'<button class="btn" id="wzRe">Ξαναμέτρα πλευρά</button>':''}<button class="btn" id="wzDiag">+ Διαγώνιος ελέγχου</button></div>`; },
+    bind:()=>{ if($('wzRe')) $('wzRe').onclick=()=>wzGo(typeof wmRoomOk==='function'&&wmRoomOk(cur)?'wsides':'sides');
       $('wzDiag').onclick=()=>{ const s=wzShapes(cur)[0]; wzFree('Η διαγώνιος μπαίνει από τις ιδιότητες του σχήματος. Μετά πάτα «Οδηγός →».'); if(s){ sel=s.id; render(); renderSide(); } }; },
     next:()=>({to:'open'}) },
   open:{ phase:'B', n:'11', room:true, mode:'room',

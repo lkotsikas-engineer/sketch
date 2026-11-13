@@ -415,6 +415,8 @@ function compute(){
   try{ if(rings.length){ foot=PC.union(...rings); if(opens.length) foot=PC.difference(foot,...opens); walls=closed.length? PC.difference(foot,...closed) : foot; footNI=PC.union(...ringsNI); if(opens.length) footNI=PC.difference(footNI,...opens); } }catch(e){ console.warn(e); }
   const clean=P=>P.map(poly=>poly.map(cleanRing).filter(r=>r.length>=3)).filter(p=>p.length);
   foot=clean(foot); footNI=clean(footNI);
+  // χωριστοί τοίχοι: το μικτό είναι ΠΑΝΤΑ το εξωτερικό περίγραμμα (ιεραρχία: ο εξωτερικός δεν αλλάζει από τα μέσα)
+  if(typeof wmOn==='function'&&wmOn()&&!opens.length&&closed.length){ const sh=wmShell(); if(sh&&sh.length>=3){ try{ const F=clean([[sh.concat([sh[0]])]]); const Wd=PC.difference(F,...closed); foot=F; walls=Wd; }catch(e){} } }
   const areaOf=P=>{ let fa=0; for(const poly of P){ let a=Math.abs(areaRing(poly[0])); for(let i=1;i<poly.length;i++) a-=Math.abs(areaRing(poly[i])); fa+=a; } return fa; };
   const fa=areaOf(foot), use={kyr:0,voith:0,imiy:0,exo:0};
   for(const r of S.rooms) use[useOf(r)]+=OL[r.id].area;
