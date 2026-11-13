@@ -123,7 +123,8 @@ function ktDrawOver(){ if(KW){ const w=KW.w, o=w.gap/2+KW.d, t0=w.a[0]*w.ux+w.a[
     const F=KW.f+KW.d, FA=W2S([a[0]+w.on[0]*F,a[1]+w.on[1]*F]), FB=W2S([b[0]+w.on[0]*F,b[1]+w.on[1]*F]); ctx.strokeStyle=KW.snap!=null?(colors.ok||'#1a7f37'):'#c2410c'; ctx.lineWidth=3; ctx.setLineDash(KW.snap!=null?[]:[8,5]); ctx.beginPath(); ctx.moveTo(FA[0],FA[1]); ctx.lineTo(FB[0],FB[1]); ctx.stroke(); ctx.setLineDash([]);
     const rn=KW.wm? (()=>{ const m=[(a[0]+b[0])/2+w.on[0]*(KW.f?KW.f+0.05:-0.05),(a[1]+b[1])/2+w.on[1]*(KW.f?KW.f+0.05:-0.05)]; return S.rooms.find(r=>OL[r.id]&&inPolys(m,OL[r.id].polys)); })() : roomById(KW.f?w.nb:w.room); ctx.fillStyle=colors.sub; ctx.font='600 14px system-ui'; ctx.fillText((KW.d>0?'+':'')+cm(KW.d)+' εκ. · παρειά «'+(rn?rn.name:'')+'»'+(KW.snap!=null?' · στην ευθεία':''),(A[0]+B[0])/2+10,(A[1]+B[1])/2-10); ctx.restore(); }
   if(KC&&KC.pts.length>1){ ctx.save(); ctx.strokeStyle=colors.sub; ctx.lineWidth=3; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.beginPath(); KC.pts.forEach((p,i)=>{ const s=W2S(p); i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1]); }); ctx.stroke(); ctx.restore(); }
-  if(mode==='house'){ ktDrawE9(); ktDrawRing('bld'); ktDrawRing('floor'); } else ktDrawDist(); }
+  if(mode==='house'){ ktDrawE9(); ktDrawRing('bld'); ktDrawRing('floor'); } else ktDrawDist();
+  if(typeof wmDrawErr==='function') wmDrawErr(); }
 
 // ---- πλαϊνό πάνελ: επεξεργασία περιγράμματος ----
 function ktSide(){ if(ktCutSide()) return true; if(!KO||mode!=='house') return false; const k=KO.k, r=ktRing(k); if(!r){ KO=null; return false; }

@@ -24,4 +24,13 @@ await pg.fill('#wzM','3'); await pg.press('#wzM','Enter'); await pg.waitForTimeo
 console.log('toast', await pg.textContent('#toast'));
 console.log('ui2', (await pg.textContent('#side')).replace(/\s+/g,' ').slice(0,200));
 await pg.screenshot({path:D+'/meas.png'});
+// σε έλεγχο του πρώτου χώρου
+await pg.evaluate(id=>window.__wm.wzGo('check',id),R[0]); await pg.waitForTimeout(300); await pg.screenshot({path:D+'/meas_chk.png'});
+console.log('rec', JSON.stringify(await pg.evaluate(id=>window.__wm.wmRec(id).map(r=>[r.lbl,r.ms.m,r.ms.d,r.ms.h,r.lvl]),R[0])));
+// ξαναμέτρηση: ιστορικό
+await pg.evaluate(id=>{ window.__S().rooms.find(r=>r.id===id).wz=0; const s=window.__wm.wmSides(id)[2]; window.__wm.wmMeasure(id,2,5.20); },R[0]);
+console.log('rec2', JSON.stringify(await pg.evaluate(id=>window.__wm.wmRec(id).map(r=>[r.lbl,r.ms.m,r.ms.h]),R[0])));
+await pg.evaluate(()=>{ document.querySelector('#bWiz').click(); }); await pg.waitForTimeout(300); await pg.evaluate(()=>window.__api.setMode('house')); await pg.waitForTimeout(300);
+await pg.evaluate(()=>document.querySelectorAll('details').forEach(d=>d.open=true)); await pg.waitForTimeout(200);
+await pg.screenshot({path:D+'/meas_house.png'});
 console.log(errs); await br.close(); })();

@@ -215,6 +215,7 @@ const WZ_STEPS = {
     title:()=>'Έλεγχος κλεισίματος',
     body:()=>{ const it=wzPen(cur), o=OL[cur]||{area:0,per:0}, chk=wzShapes(cur).flatMap(shapeChecks).concat(typeof wmChecks==='function'?wmChecks(cur):[]), wmR=typeof wmRoomOk==='function'&&wmRoomOk(cur);
       return `${it?penInfo(it):''}${checkNotes(chk)}${!it&&!chk.length?'<div class="note ok">✓ Το σχήμα είναι κλειστό.</div>':''}
+      ${wmR&&typeof wmRecUI==='function'&&wmRecUI(cur)?'<p class="wz-lead" style="margin-top:8px">Αποτύπωση χώρου</p>'+wmRecUI(cur):''}
       <dl class="sum">${it?'':`<dt>Εμβαδόν</dt><dd>${fmt(o.area)} m²</dd>`}<dt>Περίμετρος</dt><dd>${fmt(o.per)} m</dd></dl>
       <div class="actions">${it||wmR?'<button class="btn" id="wzRe">Ξαναμέτρα πλευρά</button>':''}<button class="btn" id="wzDiag">+ Διαγώνιος ελέγχου</button></div>`; },
     bind:()=>{ if($('wzRe')) $('wzRe').onclick=()=>wzGo(typeof wmRoomOk==='function'&&wmRoomOk(cur)?'wsides':'sides');

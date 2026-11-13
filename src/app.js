@@ -953,6 +953,7 @@ function housePanel(){
   <div class="tbl"><table><thead><tr><th>Χώρος</th><th>Χρήση</th><th>Ε (m²)</th></tr></thead><tbody>${rows}</tbody>
   <tfoot>${uRow('kyr','Κύριοι χώροι (καθαρό)')}${uRow('voith','Βοηθητικοί (καθαρό)')}<tr><td>Καθαρό κλειστών χώρων</td><td></td><td>${fmt(HOUSE.net)}</td></tr><tr><td>Τοίχοι</td><td></td><td>${fmt(HOUSE.footArea-HOUSE.net)}</td></tr><tr><td>Μικτό (με τοίχους)</td><td></td><td>${fmt(HOUSE.footArea)}</td></tr>${HOUSE.footArea-HOUSE.footNI>0.005?`<tr><td>Μικτό χωρίς εξωτ. μόνωση</td><td></td><td>${fmt(HOUSE.footNI)}</td></tr>`:''}${uRow('imiy','Ημιυπαίθριοι')}${uRow('exo','Εξώστες')}</tfoot></table></div>
   ${bad.length?`<div class="note warn">Ξαναμέτρησε: ${bad.map(r=>esc(r.name)+' ('+cm(roomCheck(r.id).worst)+' εκ.)').join(', ')}</div>`:''}
+  ${typeof wmRecAll==='function'?wmRecAll():''}
   <div class="actions" style="margin-top:12px"><button class="btn" id="rNew">+ Νέος χώρος</button><button class="btn" id="rImp">Χώρος από DXF</button></div>${kt('rooms')}
   <p style="font-size:13px;color:var(--ink-2)">Σύρε κάθε χώρο στη θέση του, ή πάτα έναν χώρο και «Χώρισε με εσωτερικό τοίχο». Κουμπώνει με κενό όσο ο τοίχος.</p>`,S.rooms.length+' χώροι · '+fmt(HOUSE.footArea)+' m²')}
   ${G('floors','Όροφοι',floorsUI().replace(/^<div class="eyebrow"[^>]*>Όροφοι<\/div>/,''),S.floors.length>1?S.floors.length+'':'')}
