@@ -735,7 +735,7 @@ TABLE
   2
 LAYER
  70
-21
+22
   0
 LAYER
   5
@@ -986,6 +986,18 @@ E9
 0
  62
 5
+  6
+Continuous
+  0
+LAYER
+  5
+1F3
+  2
+APOTYPOSI
+ 70
+0
+ 62
+1
   6
 Continuous
   0

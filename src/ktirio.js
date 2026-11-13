@@ -256,7 +256,8 @@ function ktTree(){ if(!S) return; if(typeof wmSync==='function') wmSync(); const
 function ktDXF(PLINE,TEXT){ const fo=FL().ol;
   if(fo){ PLINE('FLOOR-OUTLINE',fo,true); const ed=edgesOf([[fo]]); for(const e of ed){ const m=[(e.a[0]+e.b[0])/2-e.nx*0.45,(e.a[1]+e.b[1])/2-e.ny*0.45]; TEXT('FLOOR-OUTLINE',m,0.12,fmt(e.L),Math.atan2(e.uy,e.ux)); } }
   if(S.bld&&S.bld.ring) PLINE('BUILDING',S.bld.ring,true);
-  for(const x of ktE9().rooms){ if(x.u!=='kyr'&&x.u!=='voith') continue; for(const poly of x.polys) for(const r of poly) PLINE('E9',r,true); } }
+  for(const x of ktE9().rooms){ if(x.u!=='kyr'&&x.u!=='voith') continue; for(const poly of x.polys) for(const r of poly) PLINE('E9',r,true); }
+  if(typeof wmDXF==='function') wmDXF(PLINE,TEXT); }
 function ktDXFRows(row){ const E=ktE9(); if(E.sum>0){ row('Ε9 (με ½ εσωτερικών και όλους τους εξωτερικούς τοίχους): ΚΧ '+fmt(E.T.kyr)+' m², ΒΧ '+fmt(E.T.voith)+' m²',0.15);
     const grps=[...new Set(E.rooms.map(x=>x.room.grp).filter(Boolean))]; for(const g of grps){ const t={kyr:0,voith:0}; for(const x of E.rooms) if(x.room.grp===g&&t[x.u]!=null) t[x.u]+=x.e9; row('  '+g+': ΚΧ '+fmt(t.kyr)+' m², ΒΧ '+fmt(t.voith)+' m²',0.12); } }
   if(FL().ol) row('Μικτό από το περίγραμμα ορόφου: '+fmt(ktStat(FL().ol).area)+' m²',0.15); if(S.bld&&S.bld.ring) row('Περίγραμμα κτιρίου: '+fmt(ktStat(S.bld.ring).area)+' m²',0.15); }

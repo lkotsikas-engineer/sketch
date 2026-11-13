@@ -33,4 +33,6 @@ console.log('rec2', JSON.stringify(await pg.evaluate(id=>window.__wm.wmRec(id).m
 await pg.evaluate(()=>{ document.querySelector('#bWiz').click(); }); await pg.waitForTimeout(300); await pg.evaluate(()=>window.__api.setMode('house')); await pg.waitForTimeout(300);
 await pg.evaluate(()=>document.querySelectorAll('details').forEach(d=>d.open=true)); await pg.waitForTimeout(200);
 await pg.screenshot({path:D+'/meas_house.png'});
+const dx=await pg.evaluate(()=>{ document.getElementById('bDxf').click(); return document.getElementById('dxfText')?document.getElementById('dxfText').value:''; });
+require('fs').writeFileSync(D+'/meas.dxf',dx); console.log('dxf len',dx.length);
 console.log(errs); await br.close(); })();

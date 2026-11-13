@@ -232,4 +232,12 @@ function wmLockUI(room){ if(!room) return ''; const on=wmLocked(room);
 document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('[data-lock]'); if(!b) return; const r=roomById(+b.dataset.lock)||roomById(b.dataset.lock); if(!r) return;
   snap(); r.lock=!wmLocked(r); commit(); toast(r.lock?'🔒 Ο χώρος «'+r.name+'» κλειδώθηκε.':'🔓 Ο χώρος «'+r.name+'» ξεκλειδώθηκε.'); });
 function wmDrawLocks(){ if(mode!=='house') return; ctx.save(); for(const r of S.rooms){ if(!wmLocked(r)||!OL[r.id]||!OL[r.id].polys.length) continue; const C=roomCorners(r.id); if(!C.length) continue; const P=W2S(C[0]); text('🔒',[P[0]+14,P[1]+14],13,colors.ink||'#222',0,'500'); } ctx.restore(); }
+// DXF: layer APOTYPOSI = για κάθε χώρο οι μετρήσεις όπως πάρθηκαν (πλευρά, μέτρηση, σχέδιο, διαφορά, ημερομηνία)
+function wmDXF(PLINE,TEXT){ const dd=d=>d?d.split('-').reverse().join('/'):'';
+  for(const room of S.rooms){ const R=wmRec(room.id); if(!R.length) continue; const o=OL[room.id]; if(!o||!o.polys.length) continue;
+    const c=wmInPt(o.polys[0][0]); TEXT('APOTYPOSI',[c[0],c[1]+0.45],0.10,'Αποτύπωση'+(wmLocked(room)?' (κλειδωμένος)':'')+(R[0].ms.d?' '+dd(R[0].ms.d):''),0);
+    for(const r of R){ if(!r.s) continue; const s=r.s, n=wmOutN(room.id,s), k=-0.12, A=[s.a[0]+n[0]*k,s.a[1]+n[1]*k], B=[s.b[0]+n[0]*k,s.b[1]+n[1]*k];
+      PLINE('APOTYPOSI',[A,B],false); const k2=-0.25, M=[s.m[0]+n[0]*k2,s.m[1]+n[1]*k2];
+      const t=r.lbl+' μετρ. '+fmt(r.ms.m)+' / σχ. '+fmt(r.calc)+(r.lvl==='ok'?' ΟΚ':' ΔΙΑΦΟΡΑ '+(r.diff>0?'+':'')+cm(r.diff)+' εκ.')+((r.ms.h||[]).length?' (πριν '+r.ms.h.map(x=>fmt(x.m)).join(', ')+')':'');
+      TEXT('APOTYPOSI',M,0.08,t,Math.atan2(s.u[1],s.u[0])); } } }
 window.__wm={wmLocked:r=>wmLocked(r),move:(id,d)=>{ const w=wmOn().walls.find(x=>x.id===id); wmMove(w,d); },wmRec:id=>wmRec(id),wmMeasure:(...a)=>wmMeasure(...a),wmSides:id=>wmSides(id),wmMeasMap:id=>wmMeasMap(id),wmChecks:id=>wmChecks(id),wmEnsure:()=>wmEnsure(),OL:id=>OL[id],walls:()=>wmOn()&&wmOn().walls,wzGo:(s,id)=>{ if(id!=null){ cur=id; WZ.room=id; } WZ.on=true; WZ.free=false; wzGo(s); }};
