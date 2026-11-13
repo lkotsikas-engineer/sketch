@@ -60,12 +60,12 @@ function wmRegen(){ const W=wmOn(); if(!W) return null; const inner=wmInner(); i
   const dOf=(it,id)=>{ const ol=OL[id]; if(!ol) return 1e9; const p=[it.x,it.y]; return (it.t==='door'||it.t==='window')? ((nearestEdge(p,ol.edges)||{d:1e9}).d) : (inPolys(p,ol.polys)?0:(nearestEdge(p,ol.edges)||{d:1e9}).d); };
   for(const it of S.items){ if(isShape(it)) continue; let best=it.room, bd=dOf(it,it.room);
     for(const r of S.rooms){ const d=dOf(it,r.id); if(d<bd-0.01){ bd=d; best=r.id; } } it.room=best; }
-  // πάχος εξωτερικού ανά πλευρά του περιγράμματος
-  const sh=inner, T=wmExtT();
-  for(const Wl of WALLS){ if(!Wl.ext) continue; const m=[(Wl.a[0]+Wl.b[0])/2,(Wl.a[1]+Wl.b[1])/2];
-    for(let i=0;i<sh.length;i++){ const a=sh[i], b=sh[(i+1)%sh.length], L=Math.hypot(b[0]-a[0],b[1]-a[1])||1, ux=(b[0]-a[0])/L, uy=(b[1]-a[1])/L;
-      if(Math.abs(ux*Wl.uy-uy*Wl.ux)>0.01) continue; if(Math.abs((m[0]-a[0])*uy-(m[1]-a[1])*ux)>0.01) continue; const tt=(m[0]-a[0])*ux+(m[1]-a[1])*uy; if(tt<-0.01||tt>L+0.01) continue;
-      const want=wmEdgeT(i); if(Math.abs(want-T)>1e-4){ const room=roomById(Wl.room); if(room) upsertOverride(room,Wl.a,Wl.b,{t:r4(want)}); } break; } }
+  // ιεραρχία: ο εξωτερικός τοίχος φτάνει ΠΑΝΤΑ ως την εξωτερική παρειά του περιγράμματος (ποτέ εσοχή),
+  // όποιο κι αν είναι το πάχος του εσωτερικού δίπλα του. Πάχος = απόσταση της πλευράς του χώρου ως το περίγραμμα.
+  const outer=wmSegsOf(wmShell()), T=wmExtT();
+  for(const Wl of WALLS){ if(!Wl.ext||Wl.part) continue; const room=roomById(Wl.room); if(!room) continue;
+    const m=[(Wl.a[0]+Wl.b[0])/2,(Wl.a[1]+Wl.b[1])/2], D=wmCast(m,Wl.on,outer);
+    if(D<5&&Math.abs(D-T)>0.004) upsertOverride(room,Wl.a,Wl.b,{t:r4(D)}); }
   W.sig=wmSig(); compute(); return pieces.length; }
 // αλλαγή πάχους εξωτερικών: κρατά το εξωτερικό, ξαναβγάζει τους χώρους
 function wmExtChange(apply){ const W=wmOn(); snap(); apply(); compute();
@@ -91,7 +91,10 @@ function wmFromRooms(){ const sh=wmShell(); if(!sh) return false; compute();
   for(const r of S.rooms) if(OL[r.id]&&OL[r.id].polys.length) r.seed=wmInPt(OL[r.id].polys[0][0]).map(r4);
   FL().wm={walls,et:{},next:id}; return true; }
 // ξεκίνημα (από το «Χώρισε με τη γραφίδα»): κάτοψη από περίγραμμα → τοίχοι
-function wmEnsure(){ if(wmOn()) return true; if(!wmShell()) return false; const pre=snapStr(); if(!wmFromRooms()) return false;
+function wmEnsure(){ if(wmOn()) return true; const pre=snapStr();
+  // χωρίς περίγραμμα: το περίγραμμα ορόφου γίνεται το εξωτερικό των χώρων που υπάρχουν
+  if(!wmShell()){ const R=typeof ktFromRooms==='function'?ktFromRooms():null; if(!R||Math.abs(areaRing(R))<1) return false; FL().ol=R; }
+  if(!wmFromRooms()){ restore(pre); compute(); return false; }
   const n=wmRegen(); if(n==null){ restore(pre); compute(); return false; } undoS.push(pre); redoS=[]; updUndo(); commit(); return true; }
 function wmHit(p){ const W=wmOn(), inner=wmInner(); if(!W||!inner) return null; const {strips}=wmEff(W,inner); for(const w of W.walls){ const st=strips.get(w.id); if(st&&inRing(p,st)) return w; } return null; }
 function wmAxisOf(w){ const [ux,uy,L]=wmU(w); return {ux,uy,L,n:[-uy,ux]}; }
@@ -130,7 +133,7 @@ function wmCutFinish(raw){ const W=wmOn(), t=KT.cut.t; let P=penRdp(raw,Math.max
 // πάνελ εσωτερικού τοίχου (όταν πατάς πάνω του)
 let wmSelId=null;
 function wmWallOf(Wl){ const W=wmOn(); if(!W||Wl.ext) return null; const h=Wl.gap/2, m=[(Wl.a[0]+Wl.b[0])/2+Wl.on[0]*h,(Wl.a[1]+Wl.b[1])/2+Wl.on[1]*h]; return wmHit(m); }
-function wmWallPanel(Wl){ const w=wmWallOf(Wl); if(!w) return false; const W=wmOn(); const {n}=wmAxisOf(w);
+function wmWallPanel(Wl){ if(!wmOn()&&!wmEnsure()) return false; const w=wmWallOf(Wl); if(!w) return false; const W=wmOn(); const {n}=wmAxisOf(w);
   const room=roomById(Wl.room), nb=Wl.nb!=null?roomById(Wl.nb):null, s=Wl.on[0]*n[0]+Wl.on[1]*n[1];   // s>0: ο «room» είναι προς το -n
   h(`<div class="eyebrow">Εσωτερικός τοίχος</div><h2>${esc(room?room.name:'')}${nb?' · '+esc(nb.name):''}</h2>
   <dl class="sum"><dt>Μήκος άξονα</dt><dd>${fmt(wmU(w)[2])} m</dd><dt>Πάχος</dt><dd>${fmt(w.t)} m</dd></dl>
@@ -153,4 +156,13 @@ function wmOffUI(){ const W=wmOn(); if(!W) return ''; const B=bldInfo(), fo=FL()
   const warn=fo&&ba&&Math.abs(fa-ba)>Math.max(1,ba*0.05);
   return `<div class="note">Χωριστοί τοίχοι: ο εξωτερικός μένει στο ${fo?'περίγραμμα ορόφου ('+fmt(fa)+' m²)':'περίγραμμα κτιρίου ('+fmt(ba)+' m²)'}, οι χώροι βγαίνουν από τους εσωτερικούς τοίχους (${W.walls.length}). <button class="kbtn" id="wmStop" style="font-size:13px">Σταμάτα τους χωριστούς τοίχους</button></div>
   ${warn?`<div class="note warn">Το περίγραμμα ορόφου (${fmt(fa)} m²) δεν είναι ίδιο με το περίγραμμα κτιρίου (${fmt(ba)} m²). Αν θέλεις το κτίριο: «Νέα κάτοψη από τον τοπογράφο» (στο «Αρχείο κάτοψης») ή «Άλλαξε περίγραμμα ορόφου» › «Ίδιο με το κτίριο».</div>`:''}`; }
-function wmOffBind(){ if($('wmStop')) armConfirm('wmStop',()=>{ snap(); delete FL().wm; for(const r of S.rooms) delete r.seed; commit(); toast('Οι χώροι μένουν όπως είναι, χωρίς χωριστούς τοίχους.'); }); }
+function wmOffBind(){ if($('wmIntAll')){ $('wmIntAll').onmousedown=e=>e.preventDefault(); $('wmIntAll').onclick=wmIntAll; } if($('wmStop')) armConfirm('wmStop',()=>{ snap(); delete FL().wm; for(const r of S.rooms) delete r.seed; commit(); toast('Οι χώροι μένουν όπως είναι, χωρίς χωριστούς τοίχους.'); }); }
+
+// επίπεδο 2: όλοι οι εσωτερικοί τοίχοι μαζί (ο άξονας μένει, ο εξωτερικός δεν αλλάζει)
+function wmIntUI(){ return `<div class="actions"><button class="btn" id="wmIntAll">Βάλε το πάχος σε όλους τους εσωτερικούς</button></div>`; }
+function wmIntAll(){ const v=num($('wInt')?$('wInt').value:S.int); if(!(v>0.02&&v<1.5)) return toast('Γράψε πάχος σε μέτρα, π.χ. 0.20');
+  if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
+  if(!wmOn()&&!wmEnsure()) return toast('Χρειάζεται περίγραμμα ή χώροι'); const W=wmOn(), pre=snapStr(), before=S.rooms.length;
+  S.int=r4(v); for(const w of W.walls) w.t=r4(v); const c=wmRegen(); if(c==null||c<before){ restore(pre); compute(); render(); renderSide(); return toast('Δεν χωράει: κάποιος χώρος θα χανόταν.'); }
+  undoS.push(pre); redoS=[]; updUndo(); commit(); toast('Όλοι οι εσωτερικοί τοίχοι: '+cm(v)+' εκ. Ο εξωτερικός έμεινε ίδιος.'); }
+function wmHierUI(){ return `<div class="note"><b>Σειρά:</b> 1) εξωτερικός τοίχος, πάνω στο περίγραμμα, δεν αλλάζει από τα άλλα · 2) εσωτερικοί τοίχοι · 3) χώροι, βγαίνουν μόνοι τους ανάμεσα στους τοίχους.</div>`; }

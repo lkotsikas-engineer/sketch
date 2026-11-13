@@ -956,9 +956,11 @@ function housePanel(){
   ${G('floors','Όροφοι',floorsUI().replace(/^<div class="eyebrow"[^>]*>Όροφοι<\/div>/,''),S.floors.length>1?S.floors.length+'':'')}
   ${typeof ktHouseBox==='function'?G('ol','Περιγράμματα',kt('ol')):''}
   ${G('walls','Τοίχοι και κατασκευές',`
+  ${typeof wmHierUI==='function'?wmHierUI():''}
   <p>Πάτα πάνω σε έναν τοίχο για να αλλάξεις το πάχος ή την κατασκευή του. Το κουμπί «Πάχη» γράφει το πάχος πάνω σε κάθε τοίχο.</p>
   <div class="form"><label class="f">Εξωτερικοί τοίχοι του σπιτιού<select id="wExtC"><option value="">— μόνο πάχος —</option>${consOpts(S.extC,'ext')}</select></label>
   <div class="row">${S.extC&&consById(S.extC)?`<label class="f">Πάχος εξωτερικών (m)<input value="${fmt(consT(consById(S.extC)))}" disabled></label>`:field('wExt','Πάχος εξωτερικών (m)',fmt(S.ext))}${field('wInt','Εσωτερικοί, για νέους χώρους (m)',fmt(S.int))}</div>
+  ${typeof wmIntUI==='function'?wmIntUI():''}
   <div class="row">${field('wTol','Ανοχή κλεισίματος (εκ.)',cm(S.tol||0.03))}${typeof ktWallDirUI==='function'?ktWallDirUI():''}</div></div>
   <div class="eyebrow" style="margin-top:10px">Κατασκευές τοίχων</div>
   <div class="tbl"><table><tbody>${(S.cons||[]).map(c=>`<tr data-c="${c.id}"><td>${esc(c.name)} <span style="color:var(--ink-2);font-size:12px">${c.kind==='int'?'εσωτ.':'εξωτ.'}</span></td><td>${cm(consT(c))} εκ.</td></tr>`).join('')}</tbody></table></div>
