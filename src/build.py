@@ -12,7 +12,7 @@ open(os.path.join(out,'katopsi.html'),'w',encoding='utf-8').write(html)
 app=open(os.path.join(src,'app.js'),encoding='utf-8').read()
 # το ίδιο και το ktirio.js (δέντρο κτιρίου, περιγράμματα ορόφου/κτιρίου, αποστάσεις αντικειμένων)
 M='// ---------- start ----------'
-extra=''.join(open(os.path.join(src,f),encoding='utf-8').read()+'\n' for f in ('wiz.js','ktirio.js','toixoi.js') if os.path.exists(os.path.join(src,f)))
+extra=''.join(open(os.path.join(src,f),encoding='utf-8').read()+'\n' for f in ('wiz.js','ktirio.js','toixoi.js','arxeio.js') if os.path.exists(os.path.join(src,f)))
 if extra:
     html=html.replace(app,app.replace(M,extra+M,1),1)
 d=html.replace('<title>Spiti</title>','<title>Κάτοψη δοκιμή</title>',1)

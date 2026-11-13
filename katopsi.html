@@ -1199,7 +1199,8 @@ function housePanel(){
   ${t? `${bldBox()}<p>${esc(t.file)} · ${t.ents.length} γραμμές. Το DXF της οικίας βγαίνει στις συντεταγμένες του.</p><div class="layers">${Object.keys(t.layers).map(l=>`<label><input type="checkbox" data-l="${esc(l)}" ${t.layers[l]!==false?'checked':''}> ${esc(l)} <span>${t.count[l]||0}</span></label>`).join('')}</div>
      <div class="actions">${t.bld?`<button class="btn" id="tOnly">Μόνο το κτίριο</button>`:''}${t.bld&&(t.bldRings||[]).length?`<button class="btn" id="tRoom">Χώρος από το περίγραμμα</button>`:''}<button class="btn" id="tAgain">Άλλο DXF</button><button class="btn danger" id="tDel">Αφαίρεση</button></div>`
    : `<p>Φόρτωσε το DXF του τοπογράφου για να βάλεις τους χώρους πάνω στο περίγραμμα. Αν έχει layer «lk.4495.buliding.area», το περίγραμμα του κτιρίου ξεχωρίζει μόνο του και βλέπεις το εμβαδόν του δίπλα στο μικτό της κάτοψης.</p><div class="actions"><button class="btn" id="tAgain">Φόρτωσε DXF τοπογράφου</button></div>`}`,t?esc(t.file):'')}
-  ${G('plan','Νέα κάτοψη',`<div class="actions"><button class="btn danger" id="bNew">Νέα κενή κάτοψη</button>${(S.topo&&(S.topo.bldRings||[]).length)||S.bld?`<button class="btn danger" id="bNewT">Νέα κάτοψη από τον τοπογράφο</button>`:''}<button class="btn" id="bEx">Ξανά το παράδειγμα</button></div>`)}</div>`);
+  ${G('plan',typeof katUI==='function'?'Αρχείο κάτοψης':'Νέα κάτοψη',`${typeof katUI==='function'?katUI():''}<div class="actions"><button class="btn danger" id="bNew">Νέα κενή κάτοψη</button>${(S.topo&&(S.topo.bldRings||[]).length)||S.bld?`<button class="btn danger" id="bNewT">Νέα κάτοψη από τον τοπογράφο</button>`:''}<button class="btn" id="bEx">Ξανά το παράδειγμα</button></div>`)}</div>`);
+  if(typeof katBind==='function') katBind();
   side.querySelectorAll('details.grp').forEach(d=>d.addEventListener('toggle',()=>{ GRP[d.dataset.g]=d.open; try{ localStorage.setItem('katGrp',JSON.stringify(GRP)); }catch(e){} }));
   side.querySelectorAll('[data-place]').forEach(b=>b.onclick=()=>pyPlace(b.dataset.place));
   bindFloors(); if(typeof ktHouseBind==='function') ktHouseBind();
@@ -1878,9 +1879,10 @@ const WZ_STEPS = {
       <label class="f">Όνομα κάτοψης<input id="wzName" value="${esc(S.name)}" autocomplete="off"></label>
       ${has?`<div class="note">Υπάρχει ήδη κάτοψη με ${nR} ${nR===1?'χώρο':'χώρους'} σε ${S.floors.length} ${S.floors.length===1?'όροφο':'ορόφους'}.</div>
       <div class="wz-big"><button class="wz-opt" id="wzCont"><b>Συνέχισε αυτή την κάτοψη</b><span>Πας στη λίστα χώρων του ορόφου.</span></button>
-      <button class="wz-opt" id="wzFresh"><b>Ξεκίνα νέα κάτοψη</b><span>Η τωρινή σβήνεται (με Αναίρεση γυρίζει πίσω).</span></button></div>`:''}`; },
+      <button class="wz-opt" id="wzFresh"><b>Ξεκίνα νέα κάτοψη</b><span>Η τωρινή σβήνεται (με Αναίρεση γυρίζει πίσω).</span></button></div>`:''}
+      ${typeof katOpen==='function'?`<div class="wz-big"><button class="wz-opt" id="wzKat"><b>Άνοιξε κάτοψη από αρχείο</b><span>Από το Google Drive ή το tablet (.katopsi.json). Ξεκινάς αμέσως την αποτύπωση.</span></button></div>`:''}`; },
     bind:()=>{ const n=$('wzName'); n.addEventListener('change',()=>{ snap(); S.name=n.value.trim()||'Κάτοψη'; $('planName').value=S.name; save(); });
-      if($('wzCont')) $('wzCont').onclick=()=>wzGo('rooms');
+      if($('wzCont')) $('wzCont').onclick=()=>wzGo('rooms'); if($('wzKat')) $('wzKat').onclick=katOpen;
       if($('wzFresh')) armConfirm('wzFresh',()=>{ snap(); S=migrate({name:$('wzName').value.trim()||'Νέα κάτοψη',next:1,ext:S.ext,int:S.int,extC:S.extC,cons:S.cons,tol:S.tol,topo:S.topo,rooms:[{id:1,name:'Χώρος 1'}],items:[]}); cur=1; WZ.room=1; $('planName').value=S.name; commit(); wzGo('topo'); }); },
     next:()=> S.items.some(isShape)? null : {to:'topo'} },
   topo:{ phase:'A', n:'3', full:true, mode:'house',
@@ -2072,10 +2074,11 @@ const WZ_STEPS = {
       return `<p class="wz-lead">${PYCASE?'Το DXF σώζεται στον φάκελο DXF του έργου.':'Το DXF κατεβαίνει ως .zip.'} Ένα αρχείο ανά όροφο.</p>
       <div class="wz-big"><button class="wz-opt" id="wzDxf"><b>DXF εξαγωγή · ${esc(FL().name)}</b><span>Layers: περίγραμμα, τοίχοι, μήκη, χώροι, ανοίγματα.</span></button>
       ${empty.length?`<button class="wz-opt" id="wzNF"><b>Επόμενος όροφος: ${esc(empty[0].name)}</b><span>Ξεκινάς τους χώρους του.</span></button>`:''}
-      <button class="wz-opt" id="wzUpF"><b>+ Όροφος από πάνω</b><span>Και συνεχίζεις με σκίτσο ή χώρο-χώρο.</span></button></div>`; },
+      <button class="wz-opt" id="wzUpF"><b>+ Όροφος από πάνω</b><span>Και συνεχίζεις με σκίτσο ή χώρο-χώρο.</span></button>
+      ${typeof katSave==='function'?`<button class="wz-opt" id="wzKatS"><b>Σώσε την κάτοψη (Drive)</b><span>Ένα αρχείο .katopsi.json που το ανοίγεις ξανά για αποτύπωση.</span></button>`:''}</div>`; },
     bind:()=>{ $('wzDxf').onclick=()=>$('bDxf').click();
       if($('wzNF')) $('wzNF').onclick=()=>{ const f=S.floors.find(f=>f.id!==S.fl&&!floorData(f).items.some(isShape)); switchFloor(f.id); wzGo('source'); };
-      $('wzUpF').onclick=()=>{ addFloor(true); wzGo('source'); }; } }
+      $('wzUpF').onclick=()=>{ addFloor(true); wzGo('source'); }; if($('wzKatS')) $('wzKatS').onclick=katSave; } }
 };
 
 function wzSketchHook(r){ if(wzActive()&&WZ.step==='fsketch'){ wzSketchRoom(r); return true; } return false; }
@@ -2720,6 +2723,39 @@ function wmWallPanel(Wl){ const w=wmWallOf(Wl); if(!w) return false; const W=wmO
 function wmSync(){ const W=wmOn(); if(!W||W.sig===wmSig()) return; if(wmRegen()!=null){ save(); render(); } }
 function wmOffUI(){ const W=wmOn(); if(!W) return ''; return `<div class="note">Χωριστοί τοίχοι: ο εξωτερικός μένει στο περίγραμμα, οι χώροι βγαίνουν από τους εσωτερικούς τοίχους (${W.walls.length}). <button class="kbtn" id="wmStop" style="font-size:13px">Σταμάτα τους χωριστούς τοίχους</button></div>`; }
 function wmOffBind(){ if($('wmStop')) armConfirm('wmStop',()=>{ snap(); delete FL().wm; for(const r of S.rooms) delete r.seed; commit(); toast('Οι χώροι μένουν όπως είναι, χωρίς χωριστούς τοίχους.'); }); }
+
+// ---------- Αρχείο κάτοψης (Google Drive, tablet, υπολογιστής) — μόνο στο αντίγραφο δοκιμής ----------
+// «Σώσε την κάτοψη»: ένα αρχείο <όνομα>.katopsi.json με όλη την κάτοψη (και το τοπογραφικό).
+//   tablet/κινητό: παράθυρο κοινοποίησης → «Αποθήκευση στο Drive» · υπολογιστής: διαλέγεις φάκελο (π.χ. Google Drive) και μετά σώζεται μόνο του εκεί.
+// «Άνοιξε κάτοψη από αρχείο»: διαλέγεις το αρχείο (και από το Drive) και ο Οδηγός πάει κατευθείαν στην αποτύπωση (λίστα χώρων).
+const KAT={h:null,t:null,name:''};
+function katName(){ return (S.name||'katopsi').replace(/[\\/:*?"<>|]+/g,'_').trim()+'.katopsi.json'; }
+function katText(){ return JSON.stringify({app:'katopsi',v:1,saved:new Date().toISOString(),plan:S}); }
+const katMobile=()=>/Android|iPhone|iPad|Mobi/i.test(navigator.userAgent);
+async function katSave(){ const name=katName(), txt=katText(), blob=new Blob([txt],{type:'application/json'});
+  try{
+    if(katMobile()&&navigator.canShare){ const file=new File([blob],name,{type:'application/json'}); if(navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:name}); toast('Διάλεξε «Drive» για να σωθεί εκεί.'); return; } }
+    if(window.showSaveFilePicker){ const h=await window.showSaveFilePicker({suggestedName:name,types:[{description:'Κάτοψη',accept:{'application/json':['.json']}}]});
+      const w=await h.createWritable(); await w.write(blob); await w.close(); KAT.h=h; KAT.name=h.name; renderSide(); toast('Σώθηκε: '+h.name+'. Από τώρα σώζεται μόνο του εκεί.'); return; }
+  }catch(e){ if(e&&e.name==='AbortError') return; }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1500);
+  toast('Κατέβηκε το «'+name+'». Ανέβασέ το στο Drive.'); }
+// αυτόματο σώσιμο στο ίδιο αρχείο (όταν το διάλεξες στον υπολογιστή)
+function katAuto(){ if(!KAT.h) return; clearTimeout(KAT.t); KAT.t=setTimeout(async()=>{ try{ const w=await KAT.h.createWritable(); await w.write(new Blob([katText()],{type:'application/json'})); await w.close(); }catch(e){ KAT.h=null; toast('Δεν σώθηκε στο αρχείο. Πάτα ξανά «Σώσε την κάτοψη».'); } },1500); }
+function katOpen(){ let inp=$('katIn'); if(!inp){ inp=document.createElement('input'); inp.type='file'; inp.id='katIn'; inp.accept='.json,application/json,text/plain'; inp.style.display='none'; document.body.appendChild(inp);
+    inp.onchange=()=>{ const f=inp.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>katLoad(String(rd.result),f.name); rd.onerror=()=>toast('Δεν διαβάστηκε το αρχείο'); rd.readAsText(f); }; }
+  inp.value=''; inp.click(); }
+function katLoad(txt,file){ let j=null; try{ j=JSON.parse(txt); }catch(e){}
+  const o=j? migrate(j.plan||j) : null; if(!o) return toast('Το «'+file+'» δεν είναι αρχείο κάτοψης.');
+  snap(); S=o; KAT.h=null; cur=S.rooms[0].id; sel=null; selRoom=null; selWall=null; consEdit=null; splitting=null; fixRefs(); compute(); save(); render(); fit();
+  const nR=S.rooms.length;
+  // η αποτύπωση ξεκινά: ο Οδηγός στη λίστα χώρων του ορόφου
+  if(typeof wzResume==='function'){ WZ.hist=[]; WZ.step='rooms'; wzResume(); } else { mode='house'; markMode(); renderSide(); }
+  toast('Άνοιξε η κάτοψη «'+S.name+'» ('+nR+(nR===1?' χώρος':' χώροι')+'). Πάτα έναν χώρο για να τον μετρήσεις.'); }
+function katUI(){ return `<div class="actions"><button class="btn primary" id="katSave">Σώσε την κάτοψη (Drive)</button><button class="btn" id="katOpen">Άνοιξε κάτοψη από αρχείο</button></div>
+  <p style="font-size:13px;color:var(--ink-2)">${KAT.h?'Σώζεται μόνο του στο «'+esc(KAT.name)+'».':'Στο tablet διάλεξε «Drive» στο παράθυρο που ανοίγει. Στο άνοιγμα, το Drive φαίνεται στη λίστα αρχείων.'}</p>`; }
+function katBind(){ if($('katSave')) $('katSave').onclick=katSave; if($('katOpen')) $('katOpen').onclick=katOpen; }
+{ const s0=save; save=function(){ s0(); katAuto(); }; }
 
 // ---------- start ----------
 function start(){
