@@ -1264,7 +1264,10 @@ function moveRoom(id,dx,dy){ for(const it of roomItems(id)){ it.x=r4(it.x+dx); i
 // who: 'nb' μετακινείται ο διπλανός, 'self' μετακινείται ο ίδιος ο χώρος
 function setWallT(w,v,who,noSnap){ if(!(v>0&&v<3)) return toast('Γράψε πάχος σε μέτρα, π.χ. 0.20');
   const room=roomById(w.room);
-  if(w.ext){ if(typeof ktWallsIn==='function'&&ktWallsIn(()=>upsertOverride(room,w.a,w.b,{t:r4(v)}))) return; if(!noSnap) snap(); upsertOverride(room,w.a,w.b,{t:r4(v)}); commit(); return toast('Ο τοίχος έγινε '+cm(v)+' εκ. Ο χώρος έμεινε ίδιος.'); }
+  if(w.ext){ // ο τοίχος μένει επιλεγμένος: βρίσκεται από ένα σημείο κοντά στην εξωτερική παρειά, που δεν κινείται
+    const m=[(w.a[0]+w.b[0])/2+w.on[0]*(w.T-0.02),(w.a[1]+w.b[1])/2+w.on[1]*(w.T-0.02)];
+    const reSel=()=>{ const W2=hitWall(m); if(W2&&W2.ext){ selWall={room:W2.room,k:wallKey(W2.room,W2.a,W2.b)}; render(); renderSide(); } };
+    if(typeof ktWallsIn==='function'&&ktWallsIn(()=>upsertOverride(room,w.a,w.b,{t:r4(v)}))){ reSel(); return; } if(!noSnap) snap(); upsertOverride(room,w.a,w.b,{t:r4(v)}); commit(); return toast('Ο τοίχος έγινε '+cm(v)+' εκ. Ο χώρος έμεινε ίδιος.'); }
   if(!noSnap) snap();
   const delta=v-w.gap; if(who==='self') moveRoom(w.room,-w.on[0]*delta,-w.on[1]*delta); else if(w.nb!=null) moveRoom(w.nb,w.on[0]*delta,w.on[1]*delta);
   commit(); const mv=roomById(who==='self'?w.room:w.nb); toast('Ο τοίχος έγινε '+cm(v)+' εκ. Μετακινήθηκε '+(delta>0?'':'πίσω ')+'ο «'+(mv?mv.name:'')+'» κατά '+cm(Math.abs(delta))+' εκ.'); }
@@ -1295,7 +1298,7 @@ function wallPanel(w){
     if(c){ snap(); upsertOverride(room,w.a,w.b,{c:c.id}); setWallT(w,consT(c),wallWho,true); } else { snap(); upsertOverride(room,w.a,w.b,{}); commit(); } };
   if($('wEdit')) $('wEdit').onclick=()=>{ consEdit=w.c.id; selWall=null; renderSide(); render(); };
   if($('wApR')) $('wApR').onclick=()=>{ extCh(()=>{ stripExtOverrides(room.id); room.extC=w.c.id; }); toast('Όλοι οι εξωτερικοί τοίχοι του «'+room.name+'»: '+w.c.name); };
-  if($('wApH')) $('wApH').onclick=()=>{ extCh(()=>{ for(const r of S.rooms){ stripExtOverrides(r.id); delete r.extC; } if(w.c) S.extC=w.c.id; else { S.extC=null; S.ext=w.T; } }); toast('Όλοι οι εξωτερικοί τοίχοι του σπιτιού: '+(w.c?w.c.name:cm(w.T)+' εκ.')); };
+  if($('wApH')) $('wApH').onclick=()=>{ const tv=num($('wT').value), T=!w.c&&tv>0&&tv<3?r4(tv):w.T; extCh(()=>{ for(const r of S.rooms){ stripExtOverrides(r.id); delete r.extC; } if(w.c) S.extC=w.c.id; else { S.extC=null; S.ext=T; } }); selWall=null; render(); renderSide(); toast('Όλοι οι εξωτερικοί τοίχοι του σπιτιού: '+(w.c?w.c.name:cm(T)+' εκ.')+' · το εξωτερικό έμεινε ίδιο.'); };
   $('wOk').onclick=()=>{ selWall=null; render(); renderSide(); };
 }
 function consPanel(c){
